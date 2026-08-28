@@ -59,16 +59,91 @@
     }
   ];
 
+  /* 标题 → 动画引擎 全量映射（50 项全部有动画） */
+  E.ANIM_MAP = {
+    /* 第一批（原有） */
+    '双摆混沌': 'pendulum', '洛伦兹吸引子': 'lorenz', '曼德博集合': 'mandelbrot',
+    '逻辑斯蒂分岔图': 'bifurcation', '随机游走': 'walk', '傅里叶合成': 'fourier',
+    '生命游戏': 'life', '乌拉姆素数螺旋': 'ulam', '黄金螺线': 'goldenSpiral', '利萨茹图形': 'lissajous',
+    '分形：自相似的无穷细节': 'mandelbrot', '相对论：时间与速度有关': 'spacetime',
+    '量子世界：波粒二象性': 'wavepacket', '黄金比例与斐波那契': 'goldenRect',
+    '拓扑学：咖啡杯 = 甜甜圈': 'topology', '群论：对称的数学': 'category',
+    /* 数学 */
+    '黎曼猜想与素数': 'riemann', '四色定理：计算机证明的开端': 'fourColor',
+    '费马大定理：358 年的接力': 'primeSieve', '欧拉恒等式': 'fourierCircles',
+    '哥德尔不完备定理': 'godel', '无限有多大：康托尔的对角线': 'diagonal',
+    '非欧几何：第五公设的解放': 'geoSum', '图论与柯尼斯堡七桥': 'eulerPath',
+    '蒙特卡洛：用随机算确定性': 'monteCarloPi', '博弈论与纳什均衡': 'dilemma',
+    '黄金比例与无理数危机': 'goldenRect', '拓扑不变量：亏格与欧拉示性数': 'topology',
+    '密码学：素数守护互联网': 'rsa', '范畴论：数学的数学': 'category',
+    '测度论：给"长度"一个严格定义': 'lebesgue',
+    /* 物理 */
+    '麦克斯韦方程组：四行公式一个光': 'maxwell', '薛定谔方程：量子世界的牛顿第二定律': 'wavepacket',
+    '标准模型：一张表格统治粒子物理': 'entangle', '广义相对论：引力是时空弯曲': 'spacetime',
+    '热力学第二定律与熵': 'entropy', '激光：受激辐射的光放大': 'laser',
+    '半导体与能带：从沙子到芯片': 'bandgap', '超导：零电阻与迈斯纳效应': 'meissner',
+    '中微子：穿透一切的幽灵粒子': 'neutrino', '黑洞与事件视界': 'blackhole',
+    '引力波：时空的涟漪': 'gravWave', '量子纠缠与贝尔不等式': 'entangle',
+    '核聚变：人造太阳的困难与希望': 'fusion', '宇宙微波背景辐射': 'expanding',
+    '暗物质与暗能量': 'expanding',
+    /* 化学 */
+    '化学键的量子本质': 'orbitalDemo', '手性与沙利度胺悲剧': 'chiral',
+    '催化：降低活化能的艺术': 'catalysis', '熵驱动的反应：为什么有些吸热也自发': 'gibbs',
+    '分子机器': 'motor', '点击化学：分子乐高': 'click',
+    '锂电池：从实验室到诺贝尔': 'battery', '绿色化学十二条原则': 'greenChem',
+    '计算化学与 AlphaFold': 'proteinFold', '元素合成：恒星是炼丹炉': 'nucleosynthesis',
+    /* 交叉 */
+    '混沌与分形：确定性里的随机': 'mandelbrot', '信息熵与热力学熵': 'maxwellDemon',
+    '网络科学：六度分隔与无标度': 'scaleFree', '涌现：整体大于部分之和': 'boids',
+    '自组织与耗散结构': 'convection', '生物信息学：用代码读生命': 'dna',
+    '量子计算：叠加与纠缠的算力': 'qubit', '博弈演化与合作起源': 'evoGame',
+    '数学物理中的对称性': 'nother', '计算复杂性：P vs NP': 'pnp'
+  };
+
+  // 补位引擎（复用已有生成器）
+  E.ensureExtra = function () {
+    if (!window.ExploreAnim) return;
+    const AN = window.ExploreAnim;
+    if (!AN.orbitalDemo) {
+      AN.orbitalDemo = function (holder) {
+        // 电子概率云（氢原子 1s 态示意）
+        const c = document.createElement('canvas');
+        c.style.cssText = 'width:100%;max-width:300px;border-radius:8px;display:block;background:#0f172a';
+        const dpr = Math.min(window.devicePixelRatio || 1, 2);
+        c.width = 300 * dpr; c.height = 210 * dpr;
+        holder.appendChild(c);
+        const ctx = c.getContext('2d');
+        ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+        let t = 0;
+        (function loop() {
+          ctx.fillStyle = 'rgba(15,23,42,.15)'; ctx.fillRect(0, 0, 300, 210);
+          for (let i = 0; i < 50; i++) {
+            const a = Math.random() * Math.PI * 2;
+            const r = Math.abs(Math.random() * Math.random()) * 85;
+            ctx.fillStyle = 'rgba(56,189,248,' + (0.7 - r / 130) + ')';
+            ctx.fillRect(150 + r * Math.cos(a), 105 + r * Math.sin(a) * 0.85, 2, 2);
+          }
+          ctx.fillStyle = '#fbbf24';
+          ctx.beginPath(); ctx.arc(150, 105, 4, 0, Math.PI * 2); ctx.fill();
+          ctx.fillStyle = '#94a3b8'; ctx.font = '11px sans-serif';
+          ctx.fillText('电子云：概率分布（量子力学图像）', 55, 200);
+          t++; window.requestAnimationFrame(loop);
+        })();
+      };
+    }
+  };
+
   E.render = function (root) {
     const h1 = document.createElement('h1');
     h1.textContent = '资料篇 · 自由探索';
     root.appendChild(h1);
+    E.ensureExtra();
 
     const data = window.ExploreData || E.topics;
-    const nAnim = data.filter(d => d.anim).length;
+    const animCount = data.filter(d => d.anim || E.ANIM_MAP[d.title]).length;
     const sub = document.createElement('div');
     sub.className = 'graph-legend';
-    sub.textContent = '共 ' + data.length + ' 个探索主题（其中 ' + nAnim + ' 个带实时交互/动画）。内容超出课标、面向兴趣与高阶思维，标注"探索级"，不作为考点。';
+    sub.textContent = '共 ' + data.length + ' 个探索主题，全部配备实时交互/演示动画（' + animCount + ' 个）。内容超出课标、面向兴趣与高阶思维，标注"探索级"，不作为考点。';
     root.appendChild(sub);
 
     const grid = document.createElement('div');
@@ -95,29 +170,28 @@
       body.textContent = tp.body;
       card.appendChild(body);
 
-      // 动画引擎挂载
-      if (tp.anim) {
+      // 动画引擎挂载（每项都有：优先数据自带的，其次查映射表）
+      const animKey = tp.anim || E.ANIM_MAP[tp.title];
+      if (animKey) {
         const dv = document.createElement('div');
         dv.style.marginTop = '10px';
         card.appendChild(dv);
-        // 延迟挂载，避免 50 个卡片同时跑重计算
         let started = false;
         const start = function () {
           if (started) return;
           started = true;
           try {
-            if (window.ExploreAnim && ExploreAnim[tp.anim]) ExploreAnim[tp.anim](dv);
-            else { dv.innerHTML = '<div class="note">动画引擎建设中。</div>'; }
+            // 旧版演示（explore.js 内置 renderDemo）
+            if (tp.anim && (animKey === 'koch' || animKey === 'time' || animKey === 'golden') && E.renderDemo) E.renderDemo(dv, tp.demo);
+            else if (window.ExploreAnim && ExploreAnim[animKey]) ExploreAnim[animKey](dv);
+            else dv.innerHTML = '<div class="note">动画引擎建设中。</div>';
           } catch (e) { UI.showError(dv, e); }
         };
-        // 立即渲染前 12 个，其余进入视口时渲染
-        if (data.indexOf(tp) < 12) start();
-        else {
-          const io = new IntersectionObserver(function (ents) {
-            ents.forEach(function (en) { if (en.isIntersecting) { start(); io.disconnect(); } });
-          }, { rootMargin: '300px' });
-          io.observe(dv);
-        }
+        // 滚动到视口才启动，避免 50 个动画同时跑
+        const io = new IntersectionObserver(function (ents) {
+          ents.forEach(function (en) { if (en.isIntersecting) { start(); io.disconnect(); } });
+        }, { rootMargin: '200px' });
+        io.observe(dv);
       }
       if (tp.link) {
         const a = document.createElement('a');

@@ -83,24 +83,61 @@
     }
   };
 
-  // 学科列表页
+  // 学科页：互动模块 + 知识实验室全部知识点（按学段/章节）
   App.renderSubject = function (subject) {
     const root = clearApp();
     const names = { math: '数学', physics: '物理', chemistry: '化学' };
-    const h1 = document.createElement('h1'); h1.textContent = names[subject] + ' · 交互知识点'; root.appendChild(h1);
+    const h1 = document.createElement('h1');
+    h1.textContent = names[subject] + ' · 完整知识体系';
+    root.appendChild(h1);
     const stages = ['初中', '高中'];
     stages.forEach(stage => {
+      const h2 = document.createElement('h2');
+      h2.textContent = stage + '（' + (window.Reg ? Reg.list(subject, stage).length : 0) + ' 个知识点）';
+      root.appendChild(h2);
+
+      // 1) 精互动模块
       const mods = App.bySubject(subject).filter(m => m.stage === stage);
-      const h2 = document.createElement('h2'); h2.textContent = stage; root.appendChild(h2);
-      const grid = document.createElement('div'); grid.className = 'subject-grid';
-      mods.forEach(m => {
-        const card = document.createElement('div');
-        card.className = 'subject-card';
-        card.innerHTML = '<h2 style="font-size:17px"><a style="text-decoration:none;color:inherit" href="#/m/' + m.id + '">' +
-          m.title + '</a></h2><p class="desc">' + (m.desc || '') + '</p>';
-        grid.appendChild(card);
-      });
-      root.appendChild(grid);
+      if (mods.length) {
+        const mh = document.createElement('div');
+        mh.style.cssText = 'font-size:13px;color:#64748b;margin:6px 0';
+        mh.textContent = '▍实验级互动模块';
+        root.appendChild(mh);
+        const grid = document.createElement('div'); grid.className = 'subject-grid';
+        mods.forEach(m => {
+          const card = document.createElement('div');
+          card.className = 'subject-card';
+          card.innerHTML = '<h2 style="font-size:16px"><a style="text-decoration:none;color:inherit" href="#/m/' + m.id + '">' +
+            m.title + '</a></h2><p class="desc">' + (m.desc || '') + '</p>';
+          grid.appendChild(card);
+        });
+        root.appendChild(grid);
+      }
+
+      // 2) 知识实验室知识点（注册表，按章节）
+      if (window.Reg) {
+        const branches = Reg.branches(subject, stage);
+        branches.forEach(br => {
+          const bh = document.createElement('div');
+          bh.style.cssText = 'font-size:13px;color:#64748b;margin:10px 0 4px;font-weight:600';
+          bh.textContent = '▍' + br;
+          root.appendChild(bh);
+          const grid = document.createElement('div');
+          grid.className = 'kb-grid';
+          Reg.list(subject, stage, br).forEach(it => {
+            const isLit = window.Progress && Progress.isLit('kb-' + it.id);
+            const chip = document.createElement('a');
+            chip.href = '#/kb/' + it.id;
+            chip.className = 'kb-chip' + (isLit ? ' lit' : '') + (it.type === 'concept' ? ' concept' : '');
+            const tname = it.type === 'concept' ? '概念+演示' : '公式实验';
+            chip.innerHTML = (isLit ? '★ ' : '') + it.title +
+              '<span class="kb-type">' + tname + '</span>' +
+              '<span class="kb-branch">点击进入交互学习 →</span>';
+            grid.appendChild(chip);
+          });
+          root.appendChild(grid);
+        });
+      }
     });
   };
 

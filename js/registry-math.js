@@ -501,7 +501,7 @@
   /* ---------- 高中补充：解析几何 ---------- */
   R.add('math_g5_05', 'math', '高中', '点到直线的距离', '解析几何', 'calc', {
     formula: 'd = \\frac{|Ax_0 + By_0 + C|}{\\sqrt{A^2 + B^2}}',
-    params: [{ k: 'A', label: 'A', min: -5, max: 5, step: 1, v: 3 }, { k: 'B', label: 'B', min: -5, max: 5, step: 1, v: 4 }, { k: 'C', label: 'C', min: -10, max: 10, step: 1, v: -12 }, { k: 'x0', label: '点 x₀', min: -5, max: 5, step: 1, v: 1 }, { k: 'y0', label: '点 y₀', min: -5, max: 5, step: 1, v: 2 }],
+    params: [{ k: 'A', label: 'A', min: -5, max: 5, step: 1, v: 3 }, { k: 'B', label: 'B', min: -5, max: 5, step: 1, v: 4 }, { k: 'C', label: 'C', min: -20, max: 20, step: 1, v: -12 }, { k: 'x0', label: '点 x₀', min: -5, max: 5, step: 1, v: 1 }, { k: 'y0', label: '点 y₀', min: -5, max: 5, step: 1, v: 2 }],
     fn: p => {
       if (p.A === 0 && p.B === 0) return [['提示', 'A、B 不能同时为 0']];
       return [['距离 d', UI.fmt(Math.abs(p.A * p.x0 + p.B * p.y0 + p.C) / Math.sqrt(p.A * p.A + p.B * p.B), 3)], ['应用', '圆上点到直线距离 → 弦长问题']];

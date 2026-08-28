@@ -72,11 +72,23 @@
         card.appendChild(f);
         UI.texBlock(f, def.formula);
       }
-      const note = document.createElement('div');
-      note.className = 'note';
-      note.textContent = '本知识点为概念型内容，交互动画建设中；检测题已就绪，答对可点亮。';
-      card.appendChild(note);
       root.appendChild(card);
+
+      // 演示动画（每个概念知识点都有）
+      const animCard = document.createElement('div');
+      animCard.className = 'viz-card';
+      animCard.innerHTML = '<h3>演示动画 · 直观理解</h3>';
+      root.appendChild(animCard);
+      const animWrap = document.createElement('div');
+      animCard.appendChild(animWrap);
+      if (window.ConceptMap && window.ConceptAnim) {
+        const tpl = ConceptMap.get(item);
+        try { ConceptAnim.render(animWrap, tpl); } catch (e) { UI.showError(animWrap, e); }
+        const tag = document.createElement('div');
+        tag.className = 'note';
+        tag.textContent = '演示动画呈现该概念的核心机制；需要数值计算的知识点见同章节"公式实验"类条目。';
+        animCard.appendChild(tag);
+      }
     } else {
       // calc / graph 型：参数实验
       const page = document.createElement('div');

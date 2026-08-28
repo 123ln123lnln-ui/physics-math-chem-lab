@@ -113,8 +113,8 @@
     const stat = T.countLit();
     const legend = document.createElement('div');
     legend.className = 'graph-legend';
-    legend.textContent = '拖拽节点 · 滚轮缩放 · 空白处拖动平移 · 悬停看关联 · 点击金色节点进入学习。★金色=已点亮，进度：' +
-      stat.lit + ' / ' + stat.built + ' 个互动件点亮（图谱共 ' + stat.total + ' 个知识点）。';
+    legend.textContent = '五级图谱：学科主干 → 学段 → 章节 → 小节 → 知识点。拖拽节点 · 滚轮缩放 · 空白处拖动平移 · 悬停高亮相邻 · 点击节点弹出知识小卡片。★金色=已点亮，进度：' +
+      stat.lit + ' / ' + stat.built + ' 个知识点（共 ' + stat.total + ' 个）。';
     root.appendChild(legend);
 
     const holder = document.createElement('div');
@@ -125,6 +125,78 @@
     const tip = document.createElement('div');
     tip.style.cssText = 'position:absolute;pointer-events:none;background:#1e293b;color:#e2e8f0;border:1px solid #475569;border-radius:8px;padding:6px 10px;font-size:12px;display:none;z-index:5;max-width:260px';
     holder.appendChild(tip);
+
+    // 知识小卡片弹层
+    const card = document.createElement('div');
+    card.style.cssText = 'position:absolute;left:50%;top:50%;transform:translate(-50%,-50%) scale(.95);width:min(420px,90%);background:#fff;border-radius:14px;box-shadow:0 12px 40px rgba(0,0,0,.45);padding:20px;z-index:10;display:none;max-height:80%;overflow-y:auto';
+    holder.appendChild(card);
+    const shade = document.createElement('div');
+    shade.style.cssText = 'position:absolute;inset:0;background:rgba(2,6,23,.4);z-index:9;display:none';
+    holder.appendChild(shade);
+    function openCard(nd) {
+      const it = nd.kind === 'kb' ? Reg.byId[nd.kid] : null;
+      card.innerHTML = '';
+      const meta = document.createElement('div');
+      meta.style.cssText = 'font-size:11px;color:#64748b;margin-bottom:4px';
+      meta.textContent = it ? it.stage + ' · ' + it.branch : (nd.level === 2 ? '学段层' : nd.level === 3 ? '章节层' : nd.level === 4 ? '小节层' : '分支');
+      card.appendChild(meta);
+      const h = document.createElement('h3');
+      h.style.cssText = 'margin:0 0 10px;font-size:18px';
+      h.innerHTML = nd.name + (nd.lit ? ' <span style="color:#f59e0b">★ 已点亮</span>' : '');
+      card.appendChild(h);
+
+      if (it) {
+        if (it.def.formula) {
+          const fe = document.createElement('div');
+          fe.style.cssText = 'text-align:center;margin:8px 0';
+          card.appendChild(fe);
+          if (window.katex) { try { katex.render(it.def.formula, fe, { displayMode: true, throwOnError: false }); } catch (e) { fe.textContent = it.def.formula; } }
+          else fe.textContent = it.def.formula;
+        }
+        if (it.def.text) {
+          const p = document.createElement('p');
+          p.style.cssText = 'font-size:13px;line-height:1.7;color:#334155';
+          p.textContent = it.def.text.slice(0, 150) + (it.def.text.length > 150 ? '…' : '');
+          card.appendChild(p);
+        }
+        if (it.def.quiz) {
+          const q = document.createElement('p');
+          q.style.cssText = 'font-size:12.5px;color:#475569;background:#f8fafc;border-radius:8px;padding:8px 10px';
+          q.textContent = '检测题：' + it.def.quiz.q;
+          card.appendChild(q);
+        }
+        const btnRow = document.createElement('div');
+        btnRow.style.cssText = 'display:flex;gap:8px;margin-top:12px';
+        const go = document.createElement('a');
+        go.href = '#/kb/' + it.id;
+        go.className = 'btn';
+        go.style.textDecoration = 'none';
+        go.textContent = '进入学习 →';
+        const close = document.createElement('button');
+        close.className = 'btn secondary';
+        close.textContent = '关闭';
+        close.addEventListener('click', closeCard);
+        btnRow.appendChild(go); btnRow.appendChild(close);
+        card.appendChild(btnRow);
+      } else {
+        const cnt = nodes.filter(function (x) { return x.subject === nd.subject && x.type === 'topic'; }).length;
+        const p = document.createElement('p');
+        p.style.cssText = 'font-size:13px;color:#475569';
+        p.textContent = '该分支共 ' + cnt + ' 个知识点。点击外层知识点节点查看知识小卡片，"进入学习"开始交互实验。';
+        card.appendChild(p);
+        const close = document.createElement('button');
+        close.className = 'btn secondary';
+        close.textContent = '关闭';
+        close.addEventListener('click', closeCard);
+        card.appendChild(close);
+      }
+      card.style.display = 'block';
+      shade.style.display = 'block';
+    }
+    function closeCard() { card.style.display = 'none'; shade.style.display = 'none'; }
+    shade.addEventListener('click', closeCard);
+    card.setAttribute('data-card', '1');
+    shade.id = 'gcard-shade';
 
     const W = holder.clientWidth || 900, H = 620;
     const dpr = window.devicePixelRatio || 1;
@@ -147,21 +219,80 @@
     const isLitNode = function (n) { const k = litKey(n); return !!(k && window.Progress && Progress.isLit(k)); };
 
     if (window.Reg && Reg.count() > 0) {
-      // 数据驱动：注册表 → 学科主干 → 分支 → 知识点
+      // 数据驱动五级图谱：学科主干 → 学段 → 章节 → 小节 → 知识点
       const subjects = [['math', '数学之树', '#2563eb'], ['physics', '物理之树', '#dc2626'], ['chemistry', '化学之树', '#059669']];
+      // 小节划分：按章节关键词把知识点分成 2 个小节（保证至少 2 节才分）
+      const SEC_RULES = {
+        '数与式': function (t) { return /式|因式|分式|根式/.test(t) ? '式与运算' : '数与运算'; },
+        '方程与不等式': function (t) { return /不等式/.test(t) ? '不等式' : '方程'; },
+        '函数': function (t) { return /函数/.test(t) ? '函数主线' : '坐标与概念'; },
+        '图形与几何': function (t) { return /圆|角|三角形|四边形|多边形/.test(t) ? '图形性质' : '变换与度量'; },
+        '统计与概率': function (t) { return /概率/.test(t) ? '概率' : '统计'; },
+        '三角与向量': function (t) { return /向量/.test(t) ? '平面向量' : '三角函数'; },
+        '解析几何': function (t) { return /直线|圆|距离/.test(t) ? '直线与圆' : '圆锥曲线'; },
+        '概率与统计': function (t) { return /排列|二项|期望|方差/.test(t) ? '计数与分布' : '概率模型'; },
+        '声学': function (t) { return /声源|音调|响度/.test(t) ? '声音特性' : '传播与应用'; },
+        '光学': function (t) { return /反射|折射|透镜|色散/.test(t) ? '光的传播规律' : '成像与应用'; },
+        '热学': function (t) { return /热|内能|温度|比热/.test(t) ? '热与内能' : '物态变化'; },
+        '力学': function (t) { return /压强|浮力|密度/.test(t) ? '压强与浮力' : '运动与力'; },
+        '电学': function (t) { return /功率|电功|焦耳|电阻|欧姆/.test(t) ? '电功与电热' : '电路基础'; },
+        '电磁学': function (t) { return /磁|电磁/.test(t) ? '磁与电磁' : '信息与波'; },
+        '运动学': function (t) { return /图像|合成/.test(t) ? '图像与方法' : '基本公式'; },
+        '牛顿定律': function (t) { return /合成|斜面/.test(t) ? '力的处理' : '定律应用'; },
+        '曲线运动': function (t) { return /卫星|万有引力|引力/.test(t) ? '万有引力' : '曲线运动'; },
+        '能量与动量': function (t) { return /动量/.test(t) ? '动量' : '能量'; },
+        '振动与波': function (t) { return /波|干涉|衍射|多普勒|声/.test(t) ? '波动' : '振动'; },
+        '近代物理': function (t) { return /光电|原子|能级/.test(t) ? '量子与原子' : '核物理'; },
+        '物质构成与变化': function (t) { return /变化|守恒|实验操作/.test(t) ? '变化与守恒' : '构成与表示'; },
+        '碳与燃烧': function (t) { return /燃烧|燃料/.test(t) ? '燃烧与能源' : '碳的氧化物'; },
+        '水与溶液': function (t) { return /溶液|溶解/.test(t) ? '溶液' : '水'; },
+        '金属': function (t) { return /酸|置换/.test(t) ? '金属的化学性质' : '金属材料'; },
+        '酸碱盐': function (t) { return /酸$|碱$|中和|指示剂|pH/.test(t) ? '酸碱与中和' : '盐与化肥'; },
+        '基本概念': function (t) { return /离子|氧化还原|分散系|共存|NA/.test(t) ? '离子与氧化还原' : '化学计量'; },
+        '元素周期律': function (t) { return /原子结构|核素/.test(t) ? '原子结构' : '周期律'; },
+        '结构': function (t) { return /晶体/.test(t) ? '晶体' : '化学键与构型'; },
+        '反应原理': function (t) { return /平衡|速率|水解|常数/.test(t) ? '速率与平衡' : '电化学与热'; },
+        '元素化合物': function (t) { return /钠|铝|铁/.test(t) ? '金属元素' : '非金属元素'; },
+        '有机化学': function (t) { return /烃|苯/.test(t) ? '烃与芳香烃' : '烃的衍生物与高分子'; },
+        '实验与计算': function (t) { return /分离|制备|设计|滴定/.test(t) ? '实验方案' : '定量计算'; }
+      };
       subjects.forEach(function (s) {
-        const rootHub = addNode({ name: s[1], type: 'root', subject: s[0], r: 15, color: s[2], kind: 'none' });
-        const hubs = {};
-        Reg.list(s[0]).forEach(function (it) {
-          if (!hubs[it.branch]) {
-            hubs[it.branch] = addNode({ name: it.branch, type: 'hub', subject: s[0], r: 8, color: s[2], kind: 'none' });
-            edges.push({ a: rootHub, b: hubs[it.branch], len: 110, k: 0.03, cross: false });
-          }
-          const nd = addNode({ name: it.title, type: 'topic', subject: s[0], r: 4.5, color: s[2], kind: 'kb', kid: it.id, lit: false });
-          edges.push({ a: hubs[it.branch], b: nd, len: 42, k: 0.05, cross: false });
+        const rootHub = addNode({ name: s[1], type: 'root', subject: s[0], r: 15, color: s[2], kind: 'none', level: 1 });
+        ['初中', '高中'].forEach(function (stage) {
+          const list = Reg.list(s[0], stage);
+          if (!list.length) return;
+          const stageHub = addNode({ name: stage + ' ' + s[1].replace('之树', ''), type: 'hub', subject: s[0], r: 9, color: s[2], kind: 'none', level: 2 });
+          edges.push({ a: rootHub, b: stageHub, len: 110, k: 0.02, cross: false });
+          const branches = {};
+          list.forEach(function (it) { branches[it.branch] = true; });
+          Object.keys(branches).forEach(function (br) {
+            const brHub = addNode({ name: br, type: 'hub', subject: s[0], r: 6.5, color: s[2], kind: 'none', level: 3 });
+            edges.push({ a: stageHub, b: brHub, len: 80, k: 0.025, cross: false });
+            // 小节层（第4级）
+            const rule = SEC_RULES[br];
+            const items = list.filter(function (it) { return it.branch === br; });
+            const secs = {};
+            items.forEach(function (it) {
+              const secName = rule ? rule(it.title) : '全部';
+              secs[secName] = secs[secName] || [];
+              secs[secName].push(it);
+            });
+            const secNames = Object.keys(secs);
+            secNames.forEach(function (sn) {
+              let secHub = brHub;
+              if (secNames.length >= 2) {
+                secHub = addNode({ name: sn, type: 'hub', subject: s[0], r: 5, color: s[2], kind: 'none', level: 4 });
+                edges.push({ a: brHub, b: secHub, len: 55, k: 0.03, cross: false });
+              }
+              secs[sn].forEach(function (it) {
+                const nd = addNode({ name: it.title, type: 'topic', subject: s[0], r: 4, color: s[2], kind: 'kb', kid: it.id, lit: false, level: 5 });
+                edges.push({ a: secHub, b: nd, len: 30, k: 0.055, cross: false });
+              });
+            });
+          });
         });
       });
-      nodes.forEach(function (n) { n.lit = isLitNode(n); if (n.lit && n.type === 'topic') n.r = 6.5; });
+      nodes.forEach(function (n) { n.lit = isLitNode(n); if (n.lit && n.type === 'topic') n.r = 6; });
       // 语义跨学科连线：分支名相似就近连接（示例性的学科交叉）
       const crossPairs = [
         ['导数与单调性应用', '匀变速直线运动公式', '导数正是瞬时速度——变化的数学'],
@@ -305,8 +436,8 @@
       if (dragging) {
         dragging.fixed = false;
         if (!moved) {
-          if (dragging.kind === 'kb') window.location.hash = '#/kb/' + dragging.kid;
-          else if (dragging.module) window.location.hash = '#/m/' + dragging.module;
+          // 点击节点 → 弹出知识小卡片（卡片内含"进入学习"入口）
+          openCard(dragging);
         }
         dragging = null;
       }
