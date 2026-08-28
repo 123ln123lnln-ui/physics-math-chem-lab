@@ -6,6 +6,7 @@ require('../js/lab.js');
 require('../js/registry-math.js');
 require('../js/registry-physics.js');
 require('../js/registry-chemistry.js');
+require('../js/registry-more.js');
 require('../js/concept-map.js');
 const R = globalThis.Reg, CM = globalThis.ConceptMap;
 let total = 0, explicit = 0, fallback = 0;

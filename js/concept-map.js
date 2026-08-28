@@ -4,6 +4,13 @@
 
   // 显式映射（知识点 id → 演示模板）
   const MAP = {
+    /* ===== 数学（初中概念） ===== */
+    math_j1_01: { core: 'numline', o: { label: '有理数加减：数轴上走路，正向右负向左' } },
+    math_j1_02: { core: 'powerGrowth', o: { label: '乘方：每次翻倍，指数增长' } },
+    math_j1_03: { core: 'absDist', o: { label: '绝对值：到原点的距离，没有负数' } },
+    math_j1_04: { core: 'sciMove', o: { label: '科学记数法：小数点左移几位，指数就是几' } },
+    math_j2_01: { core: 'polyArea', o: { label: '整式乘法：面积模型，每块都要乘到' } },
+    math_j2_02: { core: 'squareFormula', o: { label: '完全平方公式：大正方形 = 四块面积之和' } },
     /* ===== 数学 ===== */
     math_j2_03: { core: 'factorize', o: { label: '因式分解：把面积块提取公因式，化为乘积形式' } },
     math_j3_02: { core: 'polyhedron', o: { label: '实数与数轴上的点一一对应' } },
@@ -16,7 +23,10 @@
     math_g1_02: { core: 'necessary', o: { label: '充分必要条件：小范围⇒大范围，看集合包含方向' } },
     math_g1_03: { core: 'quantifier', o: { label: '命题的否定：∀↔∃ 互换，结论取否' } },
     math_g2_04: { core: 'vtGraph', o: { label: '单调性看图像升降；偶函数关于 y 轴对称' } },
-    math_g3_03: { core: 'flow', o: { steps: ['看通项', '裂项相消', '错位相减', '分组求和'], label: '先分析通项结构，再选求和方法' } },
+    math_g3_03: { core: 'telescope', o: { label: '裂项相消：相邻项互相抵消，只剩首尾' } },
+    math_m03: { core: 'parallelLines', o: { label: '平行线：同位角/内错角/同旁内角' } },
+    math_m09: { core: 'polyhedron', o: { label: '空间直线：相交/平行/异面' } },
+    math_m10: { core: 'polyhedron', o: { label: '二面角：半平面旋转，平面角在棱上作垂线' } },
 
     /* ===== 物理（初中） ===== */
     phy_j1_03: { core: 'sound', o: {} },
@@ -42,11 +52,19 @@
     phy_g4_03: { core: 'interference', o: {} },
     phy_g4_04: { core: 'doppler', o: {} },
     phy_g5_05: { core: 'lenz', o: {} },
+    phy_m01: { core: 'vibrate', o: { label: '声音由振动产生，转换法放大观察' } },
+    phy_m02: { core: 'mirror', o: { label: '平面镜：物像等大对称，虚像' } },
+    phy_m03: { core: 'ray', o: { mode: 'reflect', label: '反射定律：三线共面，两角相等' } },
+    phy_m04: { core: 'ray', o: { mode: 'refract', label: '折射：空气入水偏向法线' } },
+    phy_m05: { core: 'vessels', o: { label: '连通器：同种液体静止时液面相平' } },
+    phy_m06: { core: 'atm', o: { label: '大气压应用：吸管、吸盘、抽水机' } },
+    phy_m08: { core: 'coil', o: { gen: false, label: '通电导体在磁场中受力（左手定则）' } },
+    phy_m10: { core: 'newton3', o: { label: '作用力与反作用力：等大反向异体' } },
 
     /* ===== 化学（初中） ===== */
     che_j1_01: { core: 'combustion', o: { label: '化学变化有新物质生成；物理变化没有（如冰→水）' } },
-    che_j1_02: { core: 'flow', o: { steps: ['观察性质', '选择用途', '验证效果'], label: '性质决定用途：氢气可燃→作燃料' } },
-    che_j1_03: { core: 'flow', o: { steps: ['取药品', '加热', '读数', '清洗'], label: '实验操作规范：安全第一，细节决定成败' } },
+    che_j1_02: { core: 'propUse', o: { label: '性质决定用途：密度小→充气球，可燃→火箭燃料' } },
+    che_j1_03: { core: 'labSafety', o: { label: '实验操作规范：取用/加热/读数各有讲究' } },
     che_j1_04: { core: 'oxygenMeasure', o: { label: '红磷燃烧耗氧，进入水的体积 = 氧气体积（约 1/5）' } },
     che_j1_05: { core: 'makeOxygen', o: { label: '制氧：加热高锰酸钾，排水法收集' } },
     che_j1_06: { core: 'atom', o: { shells: [[28, 2], [52, 8], [76, 8]] } },
@@ -90,9 +108,22 @@
     che_g7_04: { core: 'evalRadar', o: { label: '实验方案评价：原理/操作/安全/环保四维度' } },
     che_g8_01: { core: 'tyndall', o: {} },
     che_g8_02: { core: 'ionize', o: { label: '离子共存：看是否生成沉淀/气体/弱电解质/发生氧化还原' } },
-    che_g8_03: { core: 'flow', o: { steps: ['查状态(标况)', '查水解', '查特殊结构', '查可逆'], label: 'NA 题四查：标况物质状态是最大陷阱' } },
+    che_g8_03: { core: 'naCheck', o: { label: 'NA 题四站检查：标况状态/水解/特殊结构/可逆' } },
     che_g9_01: { core: 'kmno4', o: { label: '高锰酸钾自身作指示剂：半滴过量变粉红不褪 = 终点' } },
-    che_g9_02: { core: 'buretRead', o: { label: '误差分析：一切归于对标准液体积的影响（读数视线是关键）' } }
+    che_g9_02: { core: 'buretRead', o: { label: '误差分析：一切归于对标准液体积的影响（读数视线是关键）' } },
+    che_j6_01: { core: 'atom', o: { shells: [[28, 2], [52, 8]], label: '原子得失电子形成离子' } },
+    che_j6_03: { core: 'chemSymbol', o: { label: '化学式：原子按固定比例组合' } },
+    che_m01: { core: 'reaction', o: { speed: 1.4, label: '催化剂加快碰撞有效比例，本身不变' } },
+    che_m02: { core: 'soap', o: { label: '肥皂水鉴别：泡沫多为软水' } },
+    che_m03: { core: 'crystal', o: { label: '结构决定性质：金刚石硬、石墨导电' } },
+    che_m04: { core: 'combustion', o: { label: '灭火：破坏燃烧三条件之一' } },
+    che_m05: { core: 'fertilizer', o: { label: '铵态氮肥加碱放出氨气' } },
+    che_m07: { core: 'buretRead', o: { label: '配制误差：俯视偏大、仰视偏小' } },
+    che_m09: { core: 'balance2', o: { label: '等效平衡：不同起始达到相同平衡组成' } },
+    che_m10: { core: 'precip', o: { label: '沉淀向更难溶方向转化' } },
+    che_m11: { core: 'cell', o: { label: '电解池：阳极氧化、阴极还原' } },
+    che_m12: { core: 'isomer', o: { label: '同分异构：分子式同、结构不同' } },
+    che_m13: { core: 'crystal', o: { label: '晶体类型：看微粒与作用力' } }
   };
 
   // 兜底：按分支/关键词智能匹配（保证所有概念条目都有演示）

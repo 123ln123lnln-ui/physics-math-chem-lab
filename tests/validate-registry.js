@@ -15,6 +15,7 @@ require('../js/lab.js');
 require('../js/registry-math.js');
 require('../js/registry-physics.js');
 require('../js/registry-chemistry.js');
+require('../js/registry-more.js');
 
 const R = globalThis.Reg;
 let errors = 0, checked = 0;

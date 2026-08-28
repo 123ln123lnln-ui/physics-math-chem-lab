@@ -252,9 +252,9 @@
     })();
   }
 
-  /* ---------- 7. 力与能量：箭头/能量条 ---------- */
+  /* ---------- 7. 力与能量：天平场景（砝码堆 = 数值大小） ---------- */
   function vizForce(host, params, rows, P) {
-    const V = mkCanvas(host, 380, 190);
+    const V = mkCanvas(host, 380, 200);
     (function loop() {
       const ctx = V.ctx;
       ctx.fillStyle = '#0f172a'; ctx.fillRect(0, 0, V.w, V.h);
@@ -264,25 +264,32 @@
         const n = typeof r[1] === 'number' ? r[1] : parseFloat(r[1]);
         if (isFinite(n) && n >= 0 && bars.length < 4) bars.push([String(r[0]), n]);
       });
-      if (!bars.length) {
-        cap(ctx, V, '');
-        window.requestAnimationFrame(loop);
-        return;
-      }
-      const max = Math.max.apply(null, bars.map(b => b[1])) || 1;
+      if (!bars.length) { window.requestAnimationFrame(loop); return; }
+      const max = Math.max.apply(null, bars.map(function (b) { return b[1]; })) || 1;
+      // 每个量 = 一个托盘 + 砝码堆（高度 ∝ 数值）
+      const nB = bars.length;
+      const slotW = (V.w - 40) / nB;
       bars.forEach(function (b, i) {
-        const y = 30 + i * 32;
-        const w = b[1] / max * 240;
-        ctx.fillStyle = 'rgba(148,163,184,.15)';
-        ctx.fillRect(120, y, 240, 18);
-        ctx.fillStyle = ['#38bdf8', '#fbbf24', '#4ade80', '#f87171'][i % 4];
-        ctx.fillRect(120, y, Math.max(2, w), 18);
-        ctx.fillStyle = '#cbd5e1'; ctx.font = '11px sans-serif';
-        ctx.fillText(b[0].slice(0, 7), 10, y + 13);
-        ctx.fillStyle = '#fff';
-        ctx.fillText(UI.fmt(b[1], 1), 125 + w, y + 13);
+        const cx = 20 + slotW * i + slotW / 2;
+        const hgt = 12 + (b[1] / max) * 90;
+        // 托盘
+        ctx.strokeStyle = '#64748b'; ctx.lineWidth = 2;
+        ctx.beginPath(); ctx.moveTo(cx - 30, 165); ctx.lineTo(cx + 30, 165); ctx.stroke();
+        ctx.beginPath(); ctx.moveTo(cx, 165); ctx.lineTo(cx, 185); ctx.stroke();
+        // 砝码堆
+        const layers = Math.max(1, Math.round(hgt / 14));
+        for (let L = 0; L < layers; L++) {
+          const w = 44 - L * 6;
+          ctx.fillStyle = ['#38bdf8', '#fbbf24', '#4ade80', '#f87171'][i % 4];
+          ctx.fillRect(cx - w / 2, 160 - (L + 1) * 13, w, 11);
+        }
+        ctx.fillStyle = '#cbd5e1'; ctx.font = '10.5px sans-serif'; ctx.textAlign = 'center';
+        ctx.fillText(b[0].slice(0, 8), cx, 197);
+        ctx.fillStyle = '#fff'; ctx.font = 'bold 11px sans-serif';
+        ctx.fillText(UI.fmt(b[1], 1), cx, 152 - layers * 13);
+        ctx.textAlign = 'left';
       });
-      cap(ctx, V, '条形长度 = 数值大小：直观比较各物理量');
+      cap(ctx, V, '砝码堆高度 = 数值大小：像天平一样直观比较各物理量');
       window.requestAnimationFrame(loop);
     })();
   }
@@ -487,20 +494,22 @@
         val = q !== undefined ? val * q : val + d;
         if (!isFinite(val)) break;
       }
+      // 积木堆场景：每摞积木 = 一项，块数 ∝ 数值
       vals.forEach(function (v, i) {
         const x = 40 + i * ((V.w - 80) / Math.max(1, vals.length - 1));
-        const hgt = v / maxV * 45;
-        ctx.strokeStyle = '#38bdf8'; ctx.lineWidth = 3;
-        ctx.beginPath(); ctx.moveTo(x, cy); ctx.lineTo(x, cy - hgt); ctx.stroke();
-        ctx.fillStyle = '#fbbf24';
-        ctx.beginPath(); ctx.arc(x, cy - hgt, 5, 0, Math.PI * 2); ctx.fill();
+        const blocks = Math.max(1, Math.round(Math.abs(v) / maxV * 6));
+        for (let b = 0; b < blocks; b++) {
+          ctx.fillStyle = (i % 2 ? '#fbbf24' : '#38bdf8');
+          ctx.fillRect(x - 12, cy - 8 - b * 12, 24, 10);
+          ctx.strokeStyle = '#0f172a'; ctx.strokeRect(x - 12, cy - 8 - b * 12, 24, 10);
+        }
         ctx.fillStyle = '#cbd5e1'; ctx.font = '10px sans-serif'; ctx.textAlign = 'center';
-        ctx.fillText(UI.fmt(v, 1), x, cy + 22);
+        ctx.fillText('a' + (i + 1) + '=' + UI.fmt(v, 1), x, cy + 22);
       });
       ctx.textAlign = 'left';
       ctx.strokeStyle = '#475569';
       ctx.beginPath(); ctx.moveTo(20, cy); ctx.lineTo(V.w - 20, cy); ctx.stroke();
-      cap(ctx, V, q !== undefined ? '等比：每根杆是前一根的 q 倍（指数增长/衰减）' : '等差：每根杆比前一根长 d（线性增长）');
+      cap(ctx, V, q !== undefined ? '积木摞：后一摞是前一摞的 q 倍（指数增长）' : '积木摞：每摞比前一摞多 d 块（线性增长）');
       t++; window.requestAnimationFrame(loop);
     })();
   }

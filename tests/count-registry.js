@@ -6,6 +6,7 @@ require('../js/lab.js');
 require('../js/registry-math.js');
 require('../js/registry-physics.js');
 require('../js/registry-chemistry.js');
+require('../js/registry-more.js');
 const R = globalThis.Reg;
 const m = R.count('math'), p = R.count('physics'), c = R.count('chemistry');
 console.log('math=' + m + ' physics=' + p + ' chemistry=' + c + ' total=' + R.count());

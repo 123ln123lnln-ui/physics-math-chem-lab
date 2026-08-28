@@ -309,6 +309,17 @@
       tip.textContent = '点击播放：所有勾选的参数同时自动来回变化，观察结果如何联动。取消某个参数的勾选，它就会保持不动。';
       expCard.appendChild(tip);
       drawSweep();
+
+      /* calc 型也挂针对性场景动画（如有显式映射），与概念件统一 */
+      if (window.ConceptMap && window.ConceptAnim && ConceptMap.has(item.id)) {
+        const animCard = document.createElement('div');
+        animCard.className = 'viz-card';
+        animCard.innerHTML = '<h3>演示动画 · 直观理解</h3>';
+        left.appendChild(animCard);
+        const animWrap = document.createElement('div');
+        animCard.appendChild(animWrap);
+        try { ConceptAnim.render(animWrap, ConceptMap.get(item)); } catch (e) { UI.showError(animWrap, e); }
+      }
       update();
     }
 

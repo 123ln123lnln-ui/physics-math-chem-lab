@@ -114,31 +114,97 @@
         root.appendChild(grid);
       }
 
-      // 2) 知识实验室知识点（注册表，按章节）
+      // 2) 注册表知识点 —— 统一为实验级互动模块卡片样式
       if (window.Reg) {
         const branches = Reg.branches(subject, stage);
         branches.forEach(br => {
           const bh = document.createElement('div');
-          bh.style.cssText = 'font-size:13px;color:#64748b;margin:10px 0 4px;font-weight:600';
+          bh.style.cssText = 'font-size:13px;color:#64748b;margin:14px 0 6px;font-weight:600';
           bh.textContent = '▍' + br;
           root.appendChild(bh);
           const grid = document.createElement('div');
-          grid.className = 'kb-grid';
+          grid.className = 'subject-grid';
           Reg.list(subject, stage, br).forEach(it => {
             const isLit = window.Progress && Progress.isLit('kb-' + it.id);
-            const chip = document.createElement('a');
-            chip.href = '#/kb/' + it.id;
-            chip.className = 'kb-chip' + (isLit ? ' lit' : '') + (it.type === 'concept' ? ' concept' : '');
-            const tname = it.type === 'concept' ? '概念+演示' : '公式实验';
-            chip.innerHTML = (isLit ? '★ ' : '') + it.title +
-              '<span class="kb-type">' + tname + '</span>' +
-              '<span class="kb-branch">点击进入交互学习 →</span>';
-            grid.appendChild(chip);
+            const card = document.createElement('div');
+            card.className = 'subject-card';
+            card.style.borderTopColor = isLit ? '#f59e0b' : '';
+            const h2 = document.createElement('h2');
+            h2.style.fontSize = '16px';
+            const a = document.createElement('a');
+            a.href = '#/kb/' + it.id;
+            a.style.cssText = 'text-decoration:none;color:inherit';
+            a.textContent = (isLit ? '★ ' : '') + it.title;
+            h2.appendChild(a);
+            card.appendChild(h2);
+            const desc = document.createElement('p');
+            desc.className = 'desc';
+            desc.textContent = it.type === 'concept'
+              ? (it.def.text || '').slice(0, 60) + '…（配演示动画+检测题）'
+              : '拖动参数做实验，观察结果联动（配实验曲线+自动演示）。';
+            card.appendChild(desc);
+            // 公式行
+            if (it.def.formula) {
+              const f = document.createElement('div');
+              f.style.cssText = 'font-size:13px;overflow-x:auto';
+              card.appendChild(f);
+              if (window.katex) { try { katex.render(it.def.formula, f, { displayMode: false, throwOnError: false }); } catch (e) { f.textContent = it.def.formula; } }
+              else f.textContent = it.def.formula;
+            }
+            // 考点频率 + PhET 参考
+            const foot = document.createElement('div');
+            foot.style.cssText = 'display:flex;gap:10px;align-items:center;margin-top:8px;font-size:11.5px;color:#64748b';
+            const freq = document.createElement('span');
+            freq.textContent = '考点频率 ' + (it.def.freq || 2) + '/5';
+            foot.appendChild(freq);
+            const phet = App.PHET[it.id];
+            if (phet) {
+              const pl = document.createElement('a');
+              pl.href = phet;
+              pl.target = '_blank';
+              pl.rel = 'noopener';
+              pl.style.cssText = 'color:#2563eb;text-decoration:none;font-weight:600';
+              pl.textContent = 'PhET 在线参考 ↗';
+              foot.appendChild(pl);
+            }
+            card.appendChild(foot);
+            grid.appendChild(card);
           });
           root.appendChild(grid);
         });
       }
     });
+  };
+
+  /* PhET 在线互动参考（已验证的中文 sim 链接，新窗口打开） */
+  App.PHET = {
+    phy_j4_02: 'https://phet.colorado.edu/zh_CN/simulations/forces-and-motion-basics',
+    phy_m09: 'https://phet.colorado.edu/zh_CN/simulations/forces-and-motion-basics',
+    phy_g1_01: 'https://phet.colorado.edu/zh_CN/simulations/forces-and-motion-basics',
+    phy_g1_02: 'https://phet.colorado.edu/zh_CN/simulations/forces-and-motion-basics',
+    'projectile': 'https://phet.colorado.edu/zh_CN/simulations/projectile-motion',
+    phy_g2_01: 'https://phet.colorado.edu/zh_CN/simulations/projectile-motion',
+    phy_g4_01: 'https://phet.colorado.edu/zh_CN/simulations/pendulum-lab',
+    phy_j5_03: 'https://phet.colorado.edu/zh_CN/simulations/circuit-construction-kit-dc',
+    phy_j5_01: 'https://phet.colorado.edu/zh_CN/simulations/circuit-construction-kit-dc',
+    phy_g5_03: 'https://phet.colorado.edu/zh_CN/simulations/circuit-construction-kit-dc',
+    phy_j2_04: 'https://phet.colorado.edu/zh_CN/simulations/geometric-optics',
+    'lens-imaging': 'https://phet.colorado.edu/zh_CN/simulations/geometric-optics',
+    phy_j2_01: 'https://phet.colorado.edu/zh_CN/simulations/geometric-optics',
+    phy_j3_04: 'https://phet.colorado.edu/zh_CN/simulations/energy-forms-and-changes',
+    phy_j3_05: 'https://phet.colorado.edu/zh_CN/simulations/energy-forms-and-changes',
+    phy_g3_01: 'https://phet.colorado.edu/zh_CN/simulations/energy-skate-park-basics',
+    phy_j4_07: 'https://phet.colorado.edu/zh_CN/simulations/under-pressure',
+    phy_j4_08: 'https://phet.colorado.edu/zh_CN/simulations/under-pressure',
+    phy_j4_10: 'https://phet.colorado.edu/zh_CN/simulations/buoyancy',
+    phy_g2_02: 'https://phet.colorado.edu/zh_CN/simulations/gravity-and-orbits',
+    phy_g2_03: 'https://phet.colorado.edu/zh_CN/simulations/gravity-and-orbits',
+    phy_j1_01: 'https://phet.colorado.edu/zh_CN/simulations/wave-on-a-string',
+    phy_g4_02: 'https://phet.colorado.edu/zh_CN/simulations/wave-on-a-string',
+    phy_g5_01: 'https://phet.colorado.edu/zh_CN/simulations/charges-and-fields',
+    phy_g5_02: 'https://phet.colorado.edu/zh_CN/simulations/charges-and-fields',
+    phy_g7_01: 'https://phet.colorado.edu/zh_CN/simulations/models-of-the-hydrogen-atom',
+    phy_g7_02: 'https://phet.colorado.edu/zh_CN/simulations/models-of-the-hydrogen-atom'
   };
 
   // 模块页

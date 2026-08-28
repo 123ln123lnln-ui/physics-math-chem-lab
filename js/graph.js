@@ -1,7 +1,7 @@
-/* graph.js — 数理化知识图谱树数据与渲染
- * 树结构：学科 → 章节 → 知识点节点。
- * 节点带 module 字段的表示已建成互动件（可跳转、可点亮）。
- * 交叉连线体现学科间联系。
+/* graph.js — 数理化知识图谱：横排同心圆盘 + 考点频率 Z 轴（等距 3D 投影）
+ * 数据：注册表(243) + 探索篇(60) = 300+ 节点。
+ * 层级：学科主干 → 学段/类别 → 章节 → 小节 → 知识点（同心环）。
+ * Z 轴：考点频率 1-5，频率越高节点抬升越高（立体柱）。
  */
 (function () {
   const T = {};
@@ -75,7 +75,6 @@
     }
   ];
 
-  // 学科交叉连线（学习建议与知识迁移）
   T.crossLinks = [
     { from: '一次函数（数学）', to: '匀速直线运动（物理）', text: '函数的图像语言就是运动学的位移-时间图' },
     { from: '导数与切线（数学）', to: '瞬时速度（物理）', text: '导数正是"瞬时变化率"——速度的数学本质' },
@@ -88,12 +87,11 @@
   ];
 
   T.countLit = function () {
-    // 优先用注册表统计（200+ 知识点）；退回旧树
     if (window.Reg && Reg.count() > 0) {
       let lit = 0;
-      const total = Reg.count();
+      const total = Reg.count() + (window.ExploreData ? ExploreData.length : 0);
       for (const id in Reg.items) if (window.Progress && Progress.isLit('kb-' + id)) lit++;
-      return { lit: lit, total: total, built: total };
+      return { lit: lit, total: total, built: Reg.count() };
     }
     let lit = 0, total = 0, built = 0;
     T.trees.forEach(tree => tree.branches.forEach(b => b.nodes.forEach(n => {
@@ -103,48 +101,295 @@
     return { lit: lit, total: total, built: built };
   };
 
-  /* ===== Obsidian 风格力导向图谱（canvas 物理模拟） ===== */
+  /* ===== 横排 3D 图谱渲染 ===== */
   T.render = function (root) {
     root.className = 'graph-page';
     const h1 = document.createElement('h1');
-    h1.textContent = '知识图谱 · 动态星图';
+    h1.textContent = '知识图谱 · 3D 考点星图';
     root.appendChild(h1);
 
     const stat = T.countLit();
     const legend = document.createElement('div');
     legend.className = 'graph-legend';
-    legend.textContent = '同心圆盘架构：每科一个圆盘，五个同心环 = 学科主干→学段→章节→小节→知识点。拖拽节点 · 滚轮缩放 · 空白处拖动平移 · 悬停高亮相邻 · 点击节点弹出知识小卡片。★金色=已点亮，进度：' +
-      stat.lit + ' / ' + stat.built + ' 个知识点（共 ' + stat.total + ' 个）。';
+    legend.textContent = '横向四个圆盘（数学/物理/化学/探索）· 同心环 = 层级 · 立体高度 = 考点频率（Z 轴，越高越常考）。左右滚动查看 · 拖拽节点 · 悬停高亮 · 点击弹知识小卡片。★金=已点亮，进度 ' +
+      stat.lit + ' / ' + stat.total + '。';
     root.appendChild(legend);
 
     const holder = document.createElement('div');
-    holder.style.cssText = 'position:relative;background:#0f172a;border-radius:12px;overflow:hidden;height:2520px';
+    holder.style.cssText = 'position:relative;background:#0f172a;border-radius:12px;overflow-x:auto;overflow-y:hidden;height:780px';
     root.appendChild(holder);
     const canvas = document.createElement('canvas');
     holder.appendChild(canvas);
     const tip = document.createElement('div');
-    tip.style.cssText = 'position:absolute;pointer-events:none;background:#1e293b;color:#e2e8f0;border:1px solid #475569;border-radius:8px;padding:6px 10px;font-size:12px;display:none;z-index:5;max-width:260px';
-    holder.appendChild(tip);
+    tip.style.cssText = 'position:fixed;pointer-events:none;background:#1e293b;color:#e2e8f0;border:1px solid #475569;border-radius:8px;padding:6px 10px;font-size:12px;display:none;z-index:99;max-width:280px';
+    document.body.appendChild(tip);
 
     // 知识小卡片弹层
     const card = document.createElement('div');
-    card.style.cssText = 'position:absolute;left:50%;top:50%;transform:translate(-50%,-50%) scale(.95);width:min(420px,90%);background:#fff;border-radius:14px;box-shadow:0 12px 40px rgba(0,0,0,.45);padding:20px;z-index:10;display:none;max-height:80%;overflow-y:auto';
-    holder.appendChild(card);
+    card.style.cssText = 'position:fixed;left:50%;top:50%;transform:translate(-50%,-50%);width:min(430px,92%);background:#fff;border-radius:14px;box-shadow:0 12px 40px rgba(0,0,0,.5);padding:20px;z-index:100;display:none;max-height:80%;overflow-y:auto';
+    document.body.appendChild(card);
     const shade = document.createElement('div');
-    shade.style.cssText = 'position:absolute;inset:0;background:rgba(2,6,23,.4);z-index:9;display:none';
-    holder.appendChild(shade);
+    shade.style.cssText = 'position:fixed;inset:0;background:rgba(2,6,23,.45);z-index:99;display:none';
+    document.body.appendChild(shade);
+    function closeCard() { card.style.display = 'none'; shade.style.display = 'none'; }
+    shade.addEventListener('click', closeCard);
+
+    const DISC = 760;
+    const W = DISC * 4 + 60, H = 780;
+    const dpr = Math.min(window.devicePixelRatio || 1, 1.5);
+    canvas.width = W * dpr; canvas.height = H * dpr;
+    canvas.style.width = W + 'px'; canvas.style.height = H + 'px';
+    const ctx = canvas.getContext('2d');
+    ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+
+    const SQUASH = 0.42;               // 等距投影压扁系数
+    const centers = {
+      math: [DISC * 0.5 + 30, 470],
+      physics: [DISC * 1.5 + 30, 470],
+      chemistry: [DISC * 2.5 + 30, 470],
+      explore: [DISC * 3.5 + 30, 470]
+    };
+    const ringR = { 1: 0, 2: 105, 3: 195, 4: 275, 5: 345 };
+    const liftOf = function (n) { return ((n.freq || 1) - 1) * 16; };
+
+    const nodes = [], edges = [];
+    function addNode(n) {
+      const c = centers[n.subject] || [W / 2, H / 2];
+      const rr = ringR[n.level || 3] || 180;
+      const a = Math.random() * Math.PI * 2;
+      n.fx = c[0] + Math.cos(a) * rr * (0.7 + Math.random() * 0.4);
+      n.fy = c[1] + Math.sin(a) * rr * (0.7 + Math.random() * 0.4);
+      n.vx = 0; n.vy = 0;
+      nodes.push(n);
+      return n;
+    }
+    const litKey = function (n) { return n.kind === 'kb' ? 'kb-' + n.kid : (n.module || null); };
+    const isLitNode = function (n) { const k = litKey(n); return !!(k && window.Progress && Progress.isLit(k)); };
+
+    // ---- 构建节点（注册表三科 + 探索盘） ----
+    const SEC_RULES = {
+      '数与式': function (t) { return /式|因式|分式|根式/.test(t) ? '式与运算' : '数与运算'; },
+      '方程与不等式': function (t) { return /不等式/.test(t) ? '不等式' : '方程'; },
+      '函数': function (t) { return /函数/.test(t) ? '函数主线' : '坐标与概念'; },
+      '图形与几何': function (t) { return /圆|角|三角形|四边形|多边形/.test(t) ? '图形性质' : '变换与度量'; },
+      '统计与概率': function (t) { return /概率/.test(t) ? '概率' : '统计'; },
+      '三角与向量': function (t) { return /向量/.test(t) ? '平面向量' : '三角函数'; },
+      '解析几何': function (t) { return /直线|圆|距离/.test(t) ? '直线与圆' : '圆锥曲线'; },
+      '概率与统计': function (t) { return /排列|二项|期望|方差/.test(t) ? '计数与分布' : '概率模型'; },
+      '声学': function (t) { return /声源|音调|响度/.test(t) ? '声音特性' : '传播与应用'; },
+      '光学': function (t) { return /反射|折射|透镜|色散/.test(t) ? '光的传播规律' : '成像与应用'; },
+      '热学': function (t) { return /热|内能|温度|比热/.test(t) ? '热与内能' : '物态变化'; },
+      '力学': function (t) { return /压强|浮力|密度/.test(t) ? '压强与浮力' : '运动与力'; },
+      '电学': function (t) { return /功率|电功|焦耳|电阻|欧姆/.test(t) ? '电功与电热' : '电路基础'; },
+      '电磁学': function (t) { return /磁|电磁/.test(t) ? '磁与电磁' : '信息与波'; },
+      '运动学': function (t) { return /图像|合成/.test(t) ? '图像与方法' : '基本公式'; },
+      '牛顿定律': function (t) { return /合成|斜面/.test(t) ? '力的处理' : '定律应用'; },
+      '曲线运动': function (t) { return /卫星|万有引力|引力/.test(t) ? '万有引力' : '曲线运动'; },
+      '能量与动量': function (t) { return /动量/.test(t) ? '动量' : '能量'; },
+      '振动与波': function (t) { return /波|干涉|衍射|多普勒|声/.test(t) ? '波动' : '振动'; },
+      '近代物理': function (t) { return /光电|原子|能级/.test(t) ? '量子与原子' : '核物理'; },
+      '物质构成与变化': function (t) { return /变化|守恒|实验操作/.test(t) ? '变化与守恒' : '构成与表示'; },
+      '碳与燃烧': function (t) { return /燃烧|燃料/.test(t) ? '燃烧与能源' : '碳的氧化物'; },
+      '水与溶液': function (t) { return /溶液|溶解/.test(t) ? '溶液' : '水'; },
+      '金属': function (t) { return /酸|置换/.test(t) ? '金属的化学性质' : '金属材料'; },
+      '酸碱盐': function (t) { return /酸$|碱$|中和|指示剂|pH/.test(t) ? '酸碱与中和' : '盐与化肥'; },
+      '基本概念': function (t) { return /离子|氧化还原|分散系|共存|NA/.test(t) ? '离子与氧化还原' : '化学计量'; },
+      '元素周期律': function (t) { return /原子结构|核素/.test(t) ? '原子结构' : '周期律'; },
+      '结构': function (t) { return /晶体/.test(t) ? '晶体' : '化学键与构型'; },
+      '反应原理': function (t) { return /平衡|速率|水解|常数/.test(t) ? '速率与平衡' : '电化学与热'; },
+      '元素化合物': function (t) { return /钠|铝|铁/.test(t) ? '金属元素' : '非金属元素'; },
+      '有机化学': function (t) { return /烃|苯/.test(t) ? '烃与芳香烃' : '烃的衍生物与高分子'; },
+      '实验与计算': function (t) { return /分离|制备|设计|滴定/.test(t) ? '实验方案' : '定量计算'; }
+    };
+
+    if (window.Reg && Reg.count() > 0) {
+      [['math', '数学之树', '#2563eb'], ['physics', '物理之树', '#dc2626'], ['chemistry', '化学之树', '#059669']].forEach(function (s) {
+        const rootHub = addNode({ name: s[1], type: 'root', subject: s[0], r: 15, color: s[2], kind: 'none', level: 1, freq: 1 });
+        rootHub.fixed = true;
+        ['初中', '高中'].forEach(function (stage) {
+          const list = Reg.list(s[0], stage);
+          if (!list.length) return;
+          const stageHub = addNode({ name: stage, type: 'hub', subject: s[0], r: 9, color: s[2], kind: 'none', level: 2, freq: 1 });
+          edges.push({ a: rootHub, b: stageHub, len: 110, k: 0.02, cross: false });
+          const branches = {};
+          list.forEach(function (it) { branches[it.branch] = true; });
+          Object.keys(branches).forEach(function (br) {
+            const brHub = addNode({ name: br, type: 'hub', subject: s[0], r: 6.5, color: s[2], kind: 'none', level: 3, freq: 1 });
+            edges.push({ a: stageHub, b: brHub, len: 80, k: 0.025, cross: false });
+            const rule = SEC_RULES[br];
+            const items = list.filter(function (it) { return it.branch === br; });
+            const secs = {};
+            items.forEach(function (it) {
+              const secName = rule ? rule(it.title) : '全部';
+              secs[secName] = secs[secName] || [];
+              secs[secName].push(it);
+            });
+            const secNames = Object.keys(secs);
+            secNames.forEach(function (sn) {
+              let secHub = brHub;
+              if (secNames.length >= 2) {
+                secHub = addNode({ name: sn, type: 'hub', subject: s[0], r: 5, color: s[2], kind: 'none', level: 4, freq: 1 });
+                edges.push({ a: brHub, b: secHub, len: 55, k: 0.03, cross: false });
+              }
+              secs[sn].forEach(function (it) {
+                const nd = addNode({ name: it.title, type: 'topic', subject: s[0], r: 4, color: s[2], kind: 'kb', kid: it.id, lit: false, level: 5, freq: it.def && it.def.freq ? it.def.freq : 2 });
+                edges.push({ a: secHub, b: nd, len: 30, k: 0.055, cross: false });
+              });
+            });
+          });
+        });
+      });
+      // 探索盘（第四盘）
+      if (window.ExploreData) {
+        const eRoot = addNode({ name: '探索之树', type: 'root', subject: 'explore', r: 15, color: '#f59e0b', kind: 'none', level: 1, freq: 1 });
+        eRoot.fixed = true;
+        const cats = {};
+        ExploreData.forEach(function (d) { const c = d.cat || '交叉'; cats[c] = cats[c] || []; cats[c].push(d); });
+        Object.keys(cats).forEach(function (c) {
+          const cHub = addNode({ name: c, type: 'hub', subject: 'explore', r: 6, color: '#f59e0b', kind: 'none', level: 2, freq: 1 });
+          edges.push({ a: eRoot, b: cHub, len: 100, k: 0.025, cross: false });
+          cats[c].forEach(function (d) {
+            const nd = addNode({ name: d.title, type: 'topic', subject: 'explore', r: 3.5, color: '#f59e0b', kind: 'exp', lit: false, level: 3, freq: 1 });
+            edges.push({ a: cHub, b: nd, len: 42, k: 0.04, cross: false });
+          });
+        });
+      }
+      nodes.forEach(function (n) { n.lit = isLitNode(n); if (n.lit && n.type === 'topic') n.r = 6; });
+      // 跨学科连线
+      const byTitle = {};
+      nodes.forEach(function (n) { if (n.type === 'topic') byTitle[n.name] = n; });
+      function baseName(s) { return s.replace(/[（(].*?[)）]/g, '').trim(); }
+      T.crossLinks.forEach(function (l) {
+        const a = byTitle[baseName(l.from)], b = byTitle[baseName(l.to)];
+        if (a && b) edges.push({ a: a, b: b, len: 200, k: 0.004, cross: true, text: l.text });
+      });
+    }
+
+    // ---- 投影：平面(fx,fy) → 屏幕 ----
+    function proj(n) {
+      const c = centers[n.subject];
+      return [n.fx, c[1] + (n.fy - c[1]) * SQUASH - liftOf(n)];
+    }
+
+    // ---- 物理模拟（平面坐标） ----
+    let alpha = 1, dragging = null, panning = false, movedDist = 0;
+    function tick() {
+      if (!dragging && alpha < 0.005) return;
+      const act = dragging ? Math.max(alpha, 0.12) : alpha;
+      for (let i = 0; i < nodes.length; i++) {
+        for (let j = i + 1; j < nodes.length; j++) {
+          const A = nodes[i], B = nodes[j];
+          if (A.subject !== B.subject) continue; // 斥力只在本盘内（性能+不串盘）
+          let dx = B.fx - A.fx, dy = B.fy - A.fy;
+          let d2 = dx * dx + dy * dy;
+          if (d2 < 1) { d2 = 1; dx = Math.random() - 0.5; dy = Math.random() - 0.5; }
+          const d = Math.sqrt(d2);
+          const f = 1800 / d2;
+          if (!A.fixed) { A.vx -= dx / d * f; A.vy -= dy / d * f; }
+          if (!B.fixed) { B.vx += dx / d * f; B.vy += dy / d * f; }
+        }
+      }
+      edges.forEach(function (e) {
+        const dx = e.b.fx - e.a.fx, dy = e.b.fy - e.a.fy;
+        const d = Math.sqrt(dx * dx + dy * dy) || 1;
+        const f = (d - e.len) * e.k;
+        if (!e.a.fixed) { e.a.vx += dx / d * f; e.a.vy += dy / d * f; }
+        if (!e.b.fixed) { e.b.vx -= dx / d * f; e.b.vy -= dy / d * f; }
+      });
+      nodes.forEach(function (n) {
+        if (n.fixed) return;
+        const c = centers[n.subject];
+        const dx = n.fx - c[0], dy = n.fy - c[1];
+        const d = Math.hypot(dx, dy) || 1;
+        const target = ringR[n.level || 3] || 180;
+        const f = (target - d) * 0.025;
+        n.vx += dx / d * f; n.vy += dy / d * f;
+        n.vx *= 0.86; n.vy *= 0.86;
+        n.fx += n.vx * act; n.fy += n.vy * act;
+        n.fx = Math.max(20, Math.min(W - 20, n.fx));
+        n.fy = Math.max(120, Math.min(H - 60, n.fy));
+      });
+      if (!dragging) alpha *= 0.99;
+    }
+
+    // ---- 交互 ----
+    let hover = null;
+    function toCanvas(ev) {
+      const r = canvas.getBoundingClientRect();
+      return [ev.clientX - r.left, ev.clientY - r.top];
+    }
+    function findNode(mx, my) {
+      let best = null, bd = 1e9;
+      nodes.forEach(function (n) {
+        const p = proj(n);
+        const d = (p[0] - mx) * (p[0] - mx) + (p[1] - my) * (p[1] - my);
+        const rr = (n.r + 7) * (n.r + 7);
+        if (d < rr && d < bd) { bd = d; best = n; }
+      });
+      return best;
+    }
+    function neighbors(n) {
+      const set = new Set([n]);
+      edges.forEach(function (e) { if (e.a === n) set.add(e.b); if (e.b === n) set.add(e.a); });
+      return set;
+    }
+    let lastMouse = null;
+    canvas.addEventListener('mousedown', function (ev) {
+      const m = toCanvas(ev);
+      movedDist = 0;
+      const n = findNode(m[0], m[1]);
+      if (n) { dragging = n; n.fixed = true; alpha = Math.max(alpha, 0.2); } else { panning = true; }
+      lastMouse = m;
+    });
+    window.addEventListener('mousemove', function (ev) {
+      const m = toCanvas(ev);
+      if (dragging) {
+        const c = centers[dragging.subject];
+        const nfx = m[0], nfy = c[1] + (m[1] + liftOf(dragging) - c[1]) / SQUASH;
+        movedDist += Math.abs(nfx - dragging.fx) + Math.abs(nfy - dragging.fy);
+        dragging.fx = nfx; dragging.fy = nfy;
+        dragging.vx = 0; dragging.vy = 0;
+        alpha = Math.max(alpha, 0.4);
+        tip.style.display = 'none';
+      } else if (panning && lastMouse) {
+        holder.scrollLeft -= (m[0] - lastMouse[0]);
+        movedDist += Math.abs(m[0] - lastMouse[0]);
+      } else {
+        hover = findNode(m[0], m[1]);
+        if (hover) {
+          tip.style.display = 'block';
+          tip.style.left = (ev.clientX + 14) + 'px';
+          tip.style.top = (ev.clientY + 14) + 'px';
+          const freq = hover.freq || 1;
+          const st = hover.type === 'root' ? '学科主干' : hover.type === 'hub' ? '分支层' :
+            (hover.kind === 'kb' ? (hover.lit ? '★已点亮 · 点击进入' : '考点频率 ' + freq + ' · 点击进入') :
+              hover.kind === 'exp' ? '探索主题 · 点击查看' : '');
+          tip.innerHTML = '<b>' + hover.name + '</b><br><span style="color:#94a3b8">' + st + '</span>';
+        } else tip.style.display = 'none';
+      }
+      lastMouse = m;
+    });
+    window.addEventListener('mouseup', function () {
+      if (dragging) {
+        dragging.fixed = false;
+        if (movedDist < 5) openCard(dragging);
+        dragging = null;
+      }
+      panning = false;
+    });
+
     function openCard(nd) {
-      const it = nd.kind === 'kb' ? Reg.byId[nd.kid] : null;
       card.innerHTML = '';
+      const it = nd.kind === 'kb' ? Reg.byId[nd.kid] : null;
       const meta = document.createElement('div');
       meta.style.cssText = 'font-size:11px;color:#64748b;margin-bottom:4px';
-      meta.textContent = it ? it.stage + ' · ' + it.branch : (nd.level === 2 ? '学段层' : nd.level === 3 ? '章节层' : nd.level === 4 ? '小节层' : '分支');
+      meta.textContent = it ? it.stage + ' · ' + it.branch + ' · 考点频率 ' + (it.def.freq || 2) + '/5' :
+        (nd.kind === 'exp' ? '探索篇 · ' + (nd.name ? '' : '') + '自由探索' : '分支');
       card.appendChild(meta);
       const h = document.createElement('h3');
       h.style.cssText = 'margin:0 0 10px;font-size:18px';
       h.innerHTML = nd.name + (nd.lit ? ' <span style="color:#f59e0b">★ 已点亮</span>' : '');
       card.appendChild(h);
-
       if (it) {
         if (it.def.formula) {
           const fe = document.createElement('div');
@@ -169,12 +414,27 @@
         btnRow.style.cssText = 'display:flex;gap:8px;margin-top:12px';
         const go = document.createElement('a');
         go.href = '#/kb/' + it.id;
-        go.className = 'btn';
-        go.style.textDecoration = 'none';
+        go.className = 'btn'; go.style.textDecoration = 'none';
         go.textContent = '进入学习 →';
         const close = document.createElement('button');
-        close.className = 'btn secondary';
-        close.textContent = '关闭';
+        close.className = 'btn secondary'; close.textContent = '关闭';
+        close.addEventListener('click', closeCard);
+        btnRow.appendChild(go); btnRow.appendChild(close);
+        card.appendChild(btnRow);
+      } else if (nd.kind === 'exp') {
+        const d = window.ExploreData ? ExploreData.find(function (x) { return x.title === nd.name; }) : null;
+        const p = document.createElement('p');
+        p.style.cssText = 'font-size:13px;line-height:1.7;color:#334155';
+        p.textContent = d ? d.teaser + ' ' + (d.body || '').slice(0, 100) : '探索主题。';
+        card.appendChild(p);
+        const btnRow = document.createElement('div');
+        btnRow.style.cssText = 'display:flex;gap:8px;margin-top:12px';
+        const go = document.createElement('a');
+        go.href = '#/explore';
+        go.className = 'btn'; go.style.textDecoration = 'none';
+        go.textContent = '去资料篇 →';
+        const close = document.createElement('button');
+        close.className = 'btn secondary'; close.textContent = '关闭';
         close.addEventListener('click', closeCard);
         btnRow.appendChild(go); btnRow.appendChild(close);
         card.appendChild(btnRow);
@@ -182,382 +442,97 @@
         const cnt = nodes.filter(function (x) { return x.subject === nd.subject && x.type === 'topic'; }).length;
         const p = document.createElement('p');
         p.style.cssText = 'font-size:13px;color:#475569';
-        p.textContent = '该分支共 ' + cnt + ' 个知识点。点击外层知识点节点查看知识小卡片，"进入学习"开始交互实验。';
+        p.textContent = '该分支共 ' + cnt + ' 个知识点节点。';
         card.appendChild(p);
         const close = document.createElement('button');
-        close.className = 'btn secondary';
-        close.textContent = '关闭';
+        close.className = 'btn secondary'; close.textContent = '关闭';
         close.addEventListener('click', closeCard);
         card.appendChild(close);
       }
       card.style.display = 'block';
       shade.style.display = 'block';
     }
-    function closeCard() { card.style.display = 'none'; shade.style.display = 'none'; }
-    shade.addEventListener('click', closeCard);
-    card.setAttribute('data-card', '1');
-    shade.id = 'gcard-shade';
-
-    const W = holder.clientWidth || 1100, H = 2460;
-    const dpr = Math.min(window.devicePixelRatio || 1, 1.5); // 超高画布限制 DPR，防性能问题
-    canvas.width = W * dpr; canvas.height = H * dpr;
-    canvas.style.width = '100%'; canvas.style.height = '100%';
-    const ctx = canvas.getContext('2d');
-    ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
-
-    // ---- 构建节点与边 ----
-    const nodes = [], edges = [];
-    // 同心圆架构：三科纵向堆叠，每科一个圆盘；五个同心环 = 五个层级
-    const BAND = 820;
-    const centers = {
-      math: [W * 0.5, BAND * 0.5],
-      physics: [W * 0.5, BAND * 1.5],
-      chemistry: [W * 0.5, BAND * 2.5]
-    };
-    const ringR = { 1: 0, 2: 105, 3: 195, 4: 275, 5: 345 };
-    function addNode(n) {
-      const c = centers[n.subject] || [W / 2, H / 2];
-      const rr = ringR[n.level || 3] || 180;
-      const a = Math.random() * Math.PI * 2;
-      n.x = c[0] + Math.cos(a) * rr * (0.7 + Math.random() * 0.4);
-      n.y = c[1] + Math.sin(a) * rr * (0.7 + Math.random() * 0.4);
-      n.vx = 0; n.vy = 0;
-      nodes.push(n);
-      return n;
-    }
-    const litKey = function (n) { return n.kind === 'kb' ? 'kb-' + n.kid : (n.module || null); };
-    const isLitNode = function (n) { const k = litKey(n); return !!(k && window.Progress && Progress.isLit(k)); };
-
-    if (window.Reg && Reg.count() > 0) {
-      // 数据驱动五级图谱：学科主干 → 学段 → 章节 → 小节 → 知识点
-      const subjects = [['math', '数学之树', '#2563eb'], ['physics', '物理之树', '#dc2626'], ['chemistry', '化学之树', '#059669']];
-      // 小节划分：按章节关键词把知识点分成 2 个小节（保证至少 2 节才分）
-      const SEC_RULES = {
-        '数与式': function (t) { return /式|因式|分式|根式/.test(t) ? '式与运算' : '数与运算'; },
-        '方程与不等式': function (t) { return /不等式/.test(t) ? '不等式' : '方程'; },
-        '函数': function (t) { return /函数/.test(t) ? '函数主线' : '坐标与概念'; },
-        '图形与几何': function (t) { return /圆|角|三角形|四边形|多边形/.test(t) ? '图形性质' : '变换与度量'; },
-        '统计与概率': function (t) { return /概率/.test(t) ? '概率' : '统计'; },
-        '三角与向量': function (t) { return /向量/.test(t) ? '平面向量' : '三角函数'; },
-        '解析几何': function (t) { return /直线|圆|距离/.test(t) ? '直线与圆' : '圆锥曲线'; },
-        '概率与统计': function (t) { return /排列|二项|期望|方差/.test(t) ? '计数与分布' : '概率模型'; },
-        '声学': function (t) { return /声源|音调|响度/.test(t) ? '声音特性' : '传播与应用'; },
-        '光学': function (t) { return /反射|折射|透镜|色散/.test(t) ? '光的传播规律' : '成像与应用'; },
-        '热学': function (t) { return /热|内能|温度|比热/.test(t) ? '热与内能' : '物态变化'; },
-        '力学': function (t) { return /压强|浮力|密度/.test(t) ? '压强与浮力' : '运动与力'; },
-        '电学': function (t) { return /功率|电功|焦耳|电阻|欧姆/.test(t) ? '电功与电热' : '电路基础'; },
-        '电磁学': function (t) { return /磁|电磁/.test(t) ? '磁与电磁' : '信息与波'; },
-        '运动学': function (t) { return /图像|合成/.test(t) ? '图像与方法' : '基本公式'; },
-        '牛顿定律': function (t) { return /合成|斜面/.test(t) ? '力的处理' : '定律应用'; },
-        '曲线运动': function (t) { return /卫星|万有引力|引力/.test(t) ? '万有引力' : '曲线运动'; },
-        '能量与动量': function (t) { return /动量/.test(t) ? '动量' : '能量'; },
-        '振动与波': function (t) { return /波|干涉|衍射|多普勒|声/.test(t) ? '波动' : '振动'; },
-        '近代物理': function (t) { return /光电|原子|能级/.test(t) ? '量子与原子' : '核物理'; },
-        '物质构成与变化': function (t) { return /变化|守恒|实验操作/.test(t) ? '变化与守恒' : '构成与表示'; },
-        '碳与燃烧': function (t) { return /燃烧|燃料/.test(t) ? '燃烧与能源' : '碳的氧化物'; },
-        '水与溶液': function (t) { return /溶液|溶解/.test(t) ? '溶液' : '水'; },
-        '金属': function (t) { return /酸|置换/.test(t) ? '金属的化学性质' : '金属材料'; },
-        '酸碱盐': function (t) { return /酸$|碱$|中和|指示剂|pH/.test(t) ? '酸碱与中和' : '盐与化肥'; },
-        '基本概念': function (t) { return /离子|氧化还原|分散系|共存|NA/.test(t) ? '离子与氧化还原' : '化学计量'; },
-        '元素周期律': function (t) { return /原子结构|核素/.test(t) ? '原子结构' : '周期律'; },
-        '结构': function (t) { return /晶体/.test(t) ? '晶体' : '化学键与构型'; },
-        '反应原理': function (t) { return /平衡|速率|水解|常数/.test(t) ? '速率与平衡' : '电化学与热'; },
-        '元素化合物': function (t) { return /钠|铝|铁/.test(t) ? '金属元素' : '非金属元素'; },
-        '有机化学': function (t) { return /烃|苯/.test(t) ? '烃与芳香烃' : '烃的衍生物与高分子'; },
-        '实验与计算': function (t) { return /分离|制备|设计|滴定/.test(t) ? '实验方案' : '定量计算'; }
-      };
-      subjects.forEach(function (s) {
-        const rootHub = addNode({ name: s[1], type: 'root', subject: s[0], r: 15, color: s[2], kind: 'none', level: 1 });
-        rootHub.fixed = true; // 主干钉在圆心
-        ['初中', '高中'].forEach(function (stage) {
-          const list = Reg.list(s[0], stage);
-          if (!list.length) return;
-          const stageHub = addNode({ name: stage + ' ' + s[1].replace('之树', ''), type: 'hub', subject: s[0], r: 9, color: s[2], kind: 'none', level: 2 });
-          edges.push({ a: rootHub, b: stageHub, len: 110, k: 0.02, cross: false });
-          const branches = {};
-          list.forEach(function (it) { branches[it.branch] = true; });
-          Object.keys(branches).forEach(function (br) {
-            const brHub = addNode({ name: br, type: 'hub', subject: s[0], r: 6.5, color: s[2], kind: 'none', level: 3 });
-            edges.push({ a: stageHub, b: brHub, len: 80, k: 0.025, cross: false });
-            // 小节层（第4级）
-            const rule = SEC_RULES[br];
-            const items = list.filter(function (it) { return it.branch === br; });
-            const secs = {};
-            items.forEach(function (it) {
-              const secName = rule ? rule(it.title) : '全部';
-              secs[secName] = secs[secName] || [];
-              secs[secName].push(it);
-            });
-            const secNames = Object.keys(secs);
-            secNames.forEach(function (sn) {
-              let secHub = brHub;
-              if (secNames.length >= 2) {
-                secHub = addNode({ name: sn, type: 'hub', subject: s[0], r: 5, color: s[2], kind: 'none', level: 4 });
-                edges.push({ a: brHub, b: secHub, len: 55, k: 0.03, cross: false });
-              }
-              secs[sn].forEach(function (it) {
-                const nd = addNode({ name: it.title, type: 'topic', subject: s[0], r: 4, color: s[2], kind: 'kb', kid: it.id, lit: false, level: 5 });
-                edges.push({ a: secHub, b: nd, len: 30, k: 0.055, cross: false });
-              });
-            });
-          });
-        });
-      });
-      nodes.forEach(function (n) { n.lit = isLitNode(n); if (n.lit && n.type === 'topic') n.r = 6; });
-      // 语义跨学科连线：分支名相似就近连接（示例性的学科交叉）
-      const crossPairs = [
-        ['导数与单调性应用', '匀变速直线运动公式', '导数正是瞬时速度——变化的数学'],
-        ['平面向量运算', '力的合成（平行四边形定则）', '向量加法就是平行四边形定则'],
-        ['二次函数最值问题', '抛体运动', '抛体轨迹是抛物线'],
-        ['锐角三角函数', '力学', '斜面受力分解用三角函数'],
-        ['物质的量与摩尔', '概率统计', '微观统计通向宏观摩尔'],
-        ['反应热与热化学方程式', '动能与势能转化', '能量守恒贯穿理化'],
-        ['原电池与电解池', '欧姆定律', '电化学是电路在化学中的应用']
-      ];
-      const byTitle = {};
-      nodes.forEach(function (n) { if (n.type === 'topic') byTitle[n.name] = n; });
-      crossPairs.forEach(function (cp) {
-        const a = byTitle[cp[0]], b = byTitle[cp[1]];
-        if (a && b) edges.push({ a: a, b: b, len: 190, k: 0.004, cross: true, text: cp[2] });
-      });
-    } else {
-      T.trees.forEach(function (tree) {
-        const rootHub = addNode({ name: tree.title, type: 'root', subject: tree.subject, r: 15, color: tree.color, kind: 'none' });
-        tree.branches.forEach(function (branch) {
-          const hub = addNode({ name: branch.name, type: 'hub', subject: tree.subject, r: 9, color: tree.color, kind: 'none' });
-          edges.push({ a: rootHub, b: hub, len: 120, k: 0.03, cross: false });
-          branch.nodes.forEach(function (kn) {
-            const nd = addNode({ name: kn.name, type: 'topic', subject: tree.subject, r: 5, color: tree.color, kind: 'module', module: kn.module || null, lit: false });
-            edges.push({ a: hub, b: nd, len: 55, k: 0.05, cross: false });
-          });
-        });
-      });
-      nodes.forEach(function (n) { n.lit = isLitNode(n); });
-    }
-
-    // ---- 物理模拟（带完整衰减：静止后不再抖动） ----
-    let alpha = 1;
-    function tick() {
-      // 已静止且没有拖拽 → 完全跳过物理计算（图谱稳定不动）
-      if (!dragging && alpha < 0.005) return;
-      const act = dragging ? Math.max(alpha, 0.12) : alpha;
-      // 斥力
-      for (let i = 0; i < nodes.length; i++) {
-        for (let j = i + 1; j < nodes.length; j++) {
-          const A = nodes[i], B = nodes[j];
-          let dx = B.x - A.x, dy = B.y - A.y;
-          let d2 = dx * dx + dy * dy;
-          if (d2 < 1) { d2 = 1; dx = Math.random() - 0.5; dy = Math.random() - 0.5; }
-          const d = Math.sqrt(d2);
-          const f = 2600 / d2;
-          const fx = dx / d * f, fy = dy / d * f;
-          if (!A.fixed) { A.vx -= fx; A.vy -= fy; }
-          if (!B.fixed) { B.vx += fx; B.vy += fy; }
-        }
-      }
-      // 弹簧
-      edges.forEach(function (e) {
-        const dx = e.b.x - e.a.x, dy = e.b.y - e.a.y;
-        const d = Math.sqrt(dx * dx + dy * dy) || 1;
-        const f = (d - e.len) * e.k;
-        const fx = dx / d * f, fy = dy / d * f;
-        if (!e.a.fixed) { e.a.vx += fx; e.a.vy += fy; }
-        if (!e.b.fixed) { e.b.vx -= fx; e.b.vy -= fy; }
-      });
-      // 同心圆架构：把节点吸附到自己学科的环半径上（层级=环序）
-      nodes.forEach(function (n) {
-        if (n.fixed) return;
-        const c = centers[n.subject];
-        if (c) {
-          const dx = n.x - c[0], dy = n.y - c[1];
-          const d = Math.hypot(dx, dy) || 1;
-          const target = ringR[n.level || 3] || 180;
-          const f = (target - d) * 0.025;
-          n.vx += dx / d * f;
-          n.vy += dy / d * f;
-        }
-        n.vx *= 0.86; n.vy *= 0.86;
-        n.x += n.vx * act; n.y += n.vy * act;
-        n.x = Math.max(20, Math.min(W - 20, n.x));
-        n.y = Math.max(20, Math.min(H - 20, n.y));
-      });
-      // alpha 完整衰减到 0（约 7 秒后彻底静止），拖拽时会被重新加热
-      if (!dragging) alpha *= 0.99;
-    }
-
-    // ---- 视图变换（缩放/平移） ----
-    let scale = 1, panX = 0, panY = 0;
-    let hover = null, dragging = null, panning = false, moved = false, movedDist = 0;
-    let lastMouse = null;
-
-    function toWorld(mx, my) { return [(mx - panX) / scale, (my - panY) / scale]; }
-
-    function findNode(mx, my) {
-      const [wx, wy] = toWorld(mx, my);
-      let best = null, bd = 1e9;
-      nodes.forEach(function (n) {
-        const d = (n.x - wx) * (n.x - wx) + (n.y - wy) * (n.y - wy);
-        const rr = (n.r + 6) * (n.r + 6);
-        if (d < rr && d < bd) { bd = d; best = n; }
-      });
-      return best;
-    }
-
-    function neighbors(n) {
-      const set = new Set([n]);
-      edges.forEach(function (e) {
-        if (e.a === n) set.add(e.b);
-        if (e.b === n) set.add(e.a);
-      });
-      return set;
-    }
-
-    canvas.addEventListener('mousedown', function (ev) {
-      const rect = canvas.getBoundingClientRect();
-      const mx = (ev.clientX - rect.left) * W / rect.width;
-      const my = (ev.clientY - rect.top) * H / rect.height;
-      moved = false; movedDist = 0;
-      const n = findNode(mx, my);
-      if (n) { dragging = n; n.fixed = true; alpha = Math.max(alpha, 0.2); } else { panning = true; }
-      lastMouse = [mx, my];
-    });
-    window.addEventListener('mousemove', function (ev) {
-      const rect = canvas.getBoundingClientRect();
-      const mx = (ev.clientX - rect.left) * W / rect.width;
-      const my = (ev.clientY - rect.top) * H / rect.height;
-      if (dragging) {
-        const [wx, wy] = toWorld(mx, my);
-        movedDist += Math.abs(wx - dragging.x) + Math.abs(wy - dragging.y);
-        if (movedDist > 4) moved = true; // 容忍点击时的微小抖动
-        dragging.x = wx; dragging.y = wy;
-        dragging.vx = 0; dragging.vy = 0;
-        alpha = Math.max(alpha, 0.6);
-      } else if (panning && lastMouse) {
-        panX += mx - lastMouse[0];
-        panY += my - lastMouse[1];
-        movedDist += Math.abs(mx - lastMouse[0]) + Math.abs(my - lastMouse[1]);
-        if (movedDist > 4) moved = true;
-      } else {
-        hover = findNode(mx, my);
-        if (hover) {
-          tip.style.display = 'block';
-          tip.style.left = Math.min(mx + 14, W - 240) + 'px';
-          tip.style.top = (my + 14) + 'px';
-          const clickable = hover.kind === 'kb' || hover.module;
-          const st = hover.type === 'root' ? '学科主干' : hover.type === 'hub' ? '知识分支' :
-            clickable ? (hover.lit ? '★ 已点亮 · 点击复习' : '点击进入知识实验室') : '建设中';
-          tip.innerHTML = '<b>' + hover.name + '</b><br><span style="color:#94a3b8">' + st + '</span>';
-        } else {
-          tip.style.display = 'none';
-        }
-      }
-      lastMouse = [mx, my];
-    });
-    window.addEventListener('mouseup', function (ev) {
-      const rect = canvas.getBoundingClientRect();
-      const mx = (ev.clientX - rect.left) * W / rect.width;
-      const my = (ev.clientY - rect.top) * H / rect.height;
-      if (dragging) {
-        dragging.fixed = false;
-        if (!moved) {
-          // 点击节点 → 弹出知识小卡片（卡片内含"进入学习"入口）
-          openCard(dragging);
-        }
-        dragging = null;
-      }
-      panning = false;
-    });
-    canvas.addEventListener('wheel', function (ev) {
-      ev.preventDefault();
-      const rect = canvas.getBoundingClientRect();
-      const mx = (ev.clientX - rect.left) * W / rect.width;
-      const my = (ev.clientY - rect.top) * H / rect.height;
-      const [wx, wy] = toWorld(mx, my);
-      const f = ev.deltaY < 0 ? 1.12 : 1 / 1.12;
-      scale = Math.max(0.4, Math.min(3, scale * f));
-      panX = mx - wx * scale;
-      panY = my - wy * scale;
-    }, { passive: false });
 
     // ---- 绘制 ----
     function draw() {
       ctx.clearRect(0, 0, W, H);
-      ctx.save();
-      ctx.translate(panX, panY);
-      ctx.scale(scale, scale);
-
+      // Z 轴图例（左侧固定）
+      ctx.strokeStyle = '#475569';
+      ctx.beginPath(); ctx.moveTo(30, 120); ctx.lineTo(30, 320); ctx.stroke();
+      ctx.fillStyle = '#94a3b8'; ctx.font = '10px sans-serif';
+      ctx.fillText('Z 轴', 22, 110);
+      ctx.fillText('考点频率', 12, 340);
+      for (let f = 1; f <= 5; f++) {
+        const y = 320 - (f - 1) * 40;
+        ctx.strokeStyle = '#475569';
+        ctx.beginPath(); ctx.moveTo(26, y); ctx.lineTo(34, y); ctx.stroke();
+        ctx.fillStyle = f >= 4 ? '#f59e0b' : '#64748b';
+        ctx.fillText('频率' + f, 38, y + 3);
+      }
       const hi = hover ? neighbors(hover) : null;
 
-      // 同心圆参考环 + 学科标题
-      if (window.Reg && Reg.count() > 0) {
-        [['math', '数学之树', '#2563eb'], ['physics', '物理之树', '#dc2626'], ['chemistry', '化学之树', '#059669']].forEach(function (s) {
-          const c = centers[s[0]];
-          ctx.strokeStyle = 'rgba(148,163,184,.09)';
-          ctx.setLineDash([4, 6]);
-          [105, 195, 275, 345].forEach(function (r) {
-            ctx.beginPath(); ctx.arc(c[0], c[1], r, 0, Math.PI * 2); ctx.stroke();
-          });
-          ctx.setLineDash([]);
-          ctx.fillStyle = s[2];
-          ctx.font = 'bold 22px sans-serif';
-          ctx.textAlign = 'center';
-          ctx.fillText(s[1], c[0], c[1] - 375);
-          ctx.fillStyle = 'rgba(148,163,184,.5)';
-          ctx.font = '10px sans-serif';
-          ctx.fillText('环1 主干 · 环2 学段 · 环3 章节 · 环4 小节 · 环5 知识点', c[0], c[1] + 372);
-          ctx.textAlign = 'left';
+      // 圆盘参考环 + 标题
+      [['math', '数学之树', '#2563eb'], ['physics', '物理之树', '#dc2626'], ['chemistry', '化学之树', '#059669'], ['explore', '探索之树', '#f59e0b']].forEach(function (s) {
+        const c = centers[s[0]];
+        ctx.strokeStyle = 'rgba(148,163,184,.1)';
+        ctx.setLineDash([4, 6]);
+        [105, 195, 275, 345].forEach(function (r) {
+          ctx.beginPath(); ctx.ellipse(c[0], c[1], r, r * SQUASH, 0, 0, Math.PI * 2); ctx.stroke();
         });
-      }
+        ctx.setLineDash([]);
+        ctx.fillStyle = s[2];
+        ctx.font = 'bold 20px sans-serif';
+        ctx.textAlign = 'center';
+        ctx.fillText(s[1], c[0], c[1] - 345 * SQUASH - 60);
+        ctx.textAlign = 'left';
+      });
 
       // 边
       edges.forEach(function (e) {
+        const pa = proj(e.a), pb = proj(e.b);
         const dim = hi && !(hi.has(e.a) && hi.has(e.b));
-        ctx.strokeStyle = e.cross ? 'rgba(245,158,11,' + (dim ? 0.08 : 0.55) + ')' :
-          'rgba(148,163,184,' + (dim ? 0.05 : (e.a.type === 'root' || e.b.type === 'root' ? 0.25 : 0.16)) + ')';
-        ctx.lineWidth = e.cross ? 1.6 : 1;
+        ctx.strokeStyle = e.cross ? 'rgba(245,158,11,' + (dim ? 0.08 : 0.5) + ')' :
+          'rgba(148,163,184,' + (dim ? 0.04 : 0.14) + ')';
+        ctx.lineWidth = e.cross ? 1.5 : 1;
         if (e.cross) ctx.setLineDash([6, 5]); else ctx.setLineDash([]);
-        ctx.beginPath();
-        ctx.moveTo(e.a.x, e.a.y);
-        ctx.lineTo(e.b.x, e.b.y);
-        ctx.stroke();
+        ctx.beginPath(); ctx.moveTo(pa[0], pa[1]); ctx.lineTo(pb[0], pb[1]); ctx.stroke();
       });
       ctx.setLineDash([]);
 
-      // 节点
+      // 节点（先画立体柱，再画球）
       nodes.forEach(function (n) {
+        const p = proj(n);
+        const lift = liftOf(n);
         const dim = hi && !hi.has(n);
-        const glow = n.lit || n === hover;
-        if (glow) {
-          ctx.shadowColor = n.lit ? '#f59e0b' : n.color;
-          ctx.shadowBlur = 16;
-        }
         ctx.globalAlpha = dim ? 0.15 : 1;
-        ctx.beginPath();
-        ctx.arc(n.x, n.y, n.r, 0, Math.PI * 2);
-        ctx.fillStyle = n.lit ? '#f59e0b' : (n.type === 'root' ? n.color : n.type === 'hub' ? n.color : 'rgba(226,232,240,.92)');
-        if (n.type === 'topic' && !n.lit) {
-          ctx.fillStyle = 'rgba(226,232,240,.9)';
+        // 立体柱（频率抬升）
+        if (lift > 0 && n.type === 'topic') {
+          const c = centers[n.subject];
+          const baseY = c[1] + (n.fy - c[1]) * SQUASH;
+          ctx.strokeStyle = 'rgba(245,158,11,.4)';
+          ctx.lineWidth = 1.5;
+          ctx.beginPath(); ctx.moveTo(p[0], baseY); ctx.lineTo(p[0], p[1]); ctx.stroke();
         }
+        const glow = n.lit || n === hover;
+        if (glow) { ctx.shadowColor = n.lit ? '#f59e0b' : n.color; ctx.shadowBlur = 14; }
+        ctx.beginPath(); ctx.arc(p[0], p[1], n.r, 0, Math.PI * 2);
+        ctx.fillStyle = n.lit ? '#f59e0b' : (n.type === 'root' ? n.color : n.type === 'hub' ? n.color : (n.subject === 'explore' ? 'rgba(251,191,36,.85)' : 'rgba(226,232,240,.9)'));
         ctx.fill();
         ctx.shadowBlur = 0;
-        if (n.module && !n.lit) {
-          ctx.strokeStyle = n.color; ctx.lineWidth = 1.4;
-          ctx.stroke();
-        }
-        // 标签：主干/分支/点亮/悬停邻域 显示
-        const showLabel = n.type !== 'topic' || n.lit || (hi && hi.has(n)) || scale > 1.5;
+        if (n.type === 'topic' && !n.lit && n.kind === 'kb') { ctx.strokeStyle = n.color; ctx.lineWidth = 1.2; ctx.stroke(); }
+        const showLabel = n.type !== 'topic' || n.lit || (hi && hi.has(n)) || n.freq >= 4;
         if (showLabel) {
           ctx.fillStyle = n.type === 'topic' ? '#cbd5e1' : '#fff';
-          ctx.font = (n.type === 'root' ? 'bold 14px' : n.type === 'hub' ? 'bold 11px' : '10px') + ' sans-serif';
+          ctx.font = (n.type === 'root' ? 'bold 13px' : '10px') + ' sans-serif';
           ctx.textAlign = 'center';
-          ctx.fillText(n.name, n.x, n.y - n.r - 5);
+          ctx.fillText(n.name, p[0], p[1] - n.r - 4);
+          ctx.textAlign = 'left';
         }
         ctx.globalAlpha = 1;
       });
-      ctx.restore();
     }
 
-    // 视口感知：只有图谱出现在视口附近才渲染（超大画布防卡顿）
+    // 视口感知
     let inView = true;
     const io = new IntersectionObserver(function (ents) {
       ents.forEach(function (en) { inView = en.isIntersecting; });
@@ -565,35 +540,16 @@
     io.observe(holder);
 
     (function loop() {
-      if (inView) {
-        tick();
-        draw();
-      }
+      if (inView) { tick(); draw(); }
       window.requestAnimationFrame(loop);
     })();
 
-    // 重置视图按钮（缩放/平移后可一键回到全览）
     const resetBtn = document.createElement('button');
     resetBtn.className = 'btn secondary';
-    resetBtn.style.cssText = 'position:absolute;top:12px;right:12px;z-index:6;background:#1e293b;color:#e2e8f0;border:1px solid #475569';
-    resetBtn.textContent = '⌂ 重置视图';
-    resetBtn.addEventListener('click', function () { scale = 1; panX = 0; panY = 0; });
+    resetBtn.style.cssText = 'position:sticky;top:12px;left:12px;z-index:6;background:#1e293b;color:#e2e8f0;border:1px solid #475569';
+    resetBtn.textContent = '⟲ 重新布局';
+    resetBtn.addEventListener('click', function () { alpha = 1; });
     holder.appendChild(resetBtn);
-
-    // 交叉连线说明
-    const cross = document.createElement('div');
-    cross.className = 'g-cross';
-    cross.innerHTML = '<b>虚线 = 学科交叉连线</b>（悬停节点可看它的邻居）：';
-    const ul = document.createElement('ul');
-    ul.style.cssText = 'margin:8px 0 0;padding-left:18px';
-    T.crossLinks.forEach(function (l) {
-      const li = document.createElement('li');
-      li.innerHTML = '<b>' + l.from + '</b> ⇄ <b>' + l.to + '</b> — ' + l.text;
-      li.style.cssText = 'margin:5px 0';
-      ul.appendChild(li);
-    });
-    cross.appendChild(ul);
-    root.appendChild(cross);
   };
 
   window.Graph = T;
