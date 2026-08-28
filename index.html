@@ -1,0 +1,68 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>数理通 · 初高中数理化交互实验室</title>
+  <meta name="description" content="覆盖初中+高中数学、物理、化学的交互式学习网站。所有公式经过黄金测试与量纲校验。">
+
+  <!-- KaTeX: 公式渲染（本地托管，离线可用） -->
+  <link rel="stylesheet" href="vendor/katex.min.css">
+  <script src="vendor/katex.min.js"></script>
+
+  <!-- JSXGraph: 动态几何与函数绘图（本地托管） -->
+  <link rel="stylesheet" href="vendor/jsxgraph.css">
+  <script src="vendor/jsxgraphcore.js"></script>
+
+  <!-- Three.js: 3D 分子结构（本地托管） -->
+  <script src="vendor/three.min.js"></script>
+
+  <!-- 科学引擎（单一事实源 + 量纲校验） -->
+  <script src="engine/constants.js"></script>
+  <script src="engine/units.js"></script>
+  <script src="engine/integrator.js"></script>
+  <script src="engine/mathx.js"></script>
+  <script src="engine/physx.js"></script>
+  <script src="engine/chemx.js"></script>
+
+  <link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+  <header class="site-header">
+    <div class="header-inner">
+      <a class="logo" href="#/">数理通<span class="logo-sub">初高中数理化交互实验室</span></a>
+      <nav>
+        <a href="#/math" data-nav="math">数学</a>
+        <a href="#/physics" data-nav="physics">物理</a>
+        <a href="#/chemistry" data-nav="chemistry">化学</a>
+        <a href="#/lab" data-nav="lab">自检台</a>
+      </nav>
+    </div>
+  </header>
+
+  <main id="app" class="app-main"></main>
+
+  <footer class="site-footer">
+    <p>所有数值计算集中在受测试的科学引擎中；每个公式均通过黄金测试用例与量纲校验。</p>
+    <p>教学内容对齐现行课程标准；物理计算取教材约定值（如 g=9.8 N/kg）。</p>
+  </footer>
+
+  <!-- 站点框架与模块 -->
+  <script src="js/utils.js"></script>
+  <script src="js/home-demo.js"></script>
+  <script src="js/app.js"></script>
+  <script src="modules/quadratic-function.js"></script>
+  <script src="modules/trig-unit-circle.js"></script>
+  <script src="modules/derivative-tangent.js"></script>
+  <script src="modules/ellipse.js"></script>
+  <script src="modules/free-fall.js"></script>
+  <script src="modules/projectile.js"></script>
+  <script src="modules/lens-imaging.js"></script>
+  <script src="modules/shm-spring.js"></script>
+  <script src="modules/water-molecule.js"></script>
+  <script src="modules/periodic-table.js"></script>
+  <script src="modules/titration.js"></script>
+  <script src="engine/tests.js"></script>
+  <script src="js/bootstrap.js"></script>
+</body>
+</html>
