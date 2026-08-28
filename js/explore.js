@@ -137,40 +137,83 @@
     const h1 = document.createElement('h1');
     h1.textContent = '资料篇 · 自由探索';
     root.appendChild(h1);
-    E.ensureExtra();
 
-    const data = window.ExploreData || E.topics;
-    const animCount = data.filter(d => d.anim || E.ANIM_MAP[d.title]).length;
+    // 合并：手写 60 + 生成器 1011
+    const data = (window.ExploreData || E.topics).concat(window.ExploreGen || []);
     const sub = document.createElement('div');
     sub.className = 'graph-legend';
-    sub.textContent = '共 ' + data.length + ' 个探索主题，全部配备实时交互/演示动画（' + animCount + ' 个）。内容超出课标、面向兴趣与高阶思维，标注"探索级"，不作为考点。';
+    sub.textContent = '共 ' + data.length + ' 个探索主题（全部配备实时交互/演示动画；其中 ' + (window.ExploreGen ? window.ExploreGen.length : 0) + ' 个由生成器脚本产出，数据真实可复算）。内容超出课标、面向兴趣与高阶思维，标注"探索级"，不作为考点。';
     root.appendChild(sub);
+
+    // 搜索 + 分类筛选
+    const bar = document.createElement('div');
+    bar.style.cssText = 'display:flex;gap:10px;margin:12px 0;flex-wrap:wrap';
+    const input = document.createElement('input');
+    input.placeholder = '搜索主题…（如：素数、焰色、排序）';
+    input.style.cssText = 'flex:1;min-width:200px;padding:8px 12px;border-radius:8px;border:1px solid #cbd5e1;font-size:14px';
+    bar.appendChild(input);
+    const cats = {};
+    data.forEach(function (d) { cats[d.cat] = true; });
+    const sel = document.createElement('select');
+    sel.style.cssText = 'padding:8px;border-radius:8px;border:1px solid #cbd5e1';
+    sel.innerHTML = '<option value="">全部分类</option>' + Object.keys(cats).map(function (c) { return '<option>' + c + '</option>'; }).join('');
+    bar.appendChild(sel);
+    const count = document.createElement('span');
+    count.style.cssText = 'align-self:center;font-size:13px;color:#64748b';
+    bar.appendChild(count);
+    root.appendChild(bar);
 
     const grid = document.createElement('div');
     grid.className = 'subject-grid';
+    root.appendChild(grid);
+    const loadBtn = document.createElement('button');
+    loadBtn.className = 'btn';
+    loadBtn.style.cssText = 'margin:14px auto;display:block';
+    root.appendChild(loadBtn);
 
-    data.forEach(function (tp) {
+    let shown = 0;
+    const BATCH = 24;
+    function filtered() {
+      const q = input.value.trim();
+      const c = sel.value;
+      return data.filter(function (d) {
+        return (!c || d.cat === c) && (!q || d.title.indexOf(q) >= 0 || (d.teaser || '').indexOf(q) >= 0);
+      });
+    }
+    function renderBatch(reset) {
+      if (reset) { grid.innerHTML = ''; shown = 0; }
+      const list = filtered();
+      const slice = list.slice(shown, shown + BATCH);
+      slice.forEach(function (tp) { grid.appendChild(buildCard(tp)); });
+      shown += slice.length;
+      count.textContent = '显示 ' + shown + ' / ' + list.length;
+      loadBtn.style.display = shown < list.length ? 'block' : 'none';
+      loadBtn.textContent = '加载更多（还有 ' + (list.length - shown) + ' 个）';
+    }
+    input.addEventListener('input', function () { renderBatch(true); });
+    sel.addEventListener('change', function () { renderBatch(true); });
+    loadBtn.addEventListener('click', function () { renderBatch(false); });
+    renderBatch(true);
+    return;
+
+    function buildCard(tp) {
       const card = document.createElement('div');
-      card.className = 'subject-card';
+      card.className = 'subject-card explore-card';
       const h2 = document.createElement('h2');
-      h2.style.fontSize = '16px';
       h2.textContent = tp.title;
       card.appendChild(h2);
-      const lv = document.createElement('p');
-      lv.className = 'desc';
-      lv.style.color = '#b45309';
-      lv.textContent = '探索级 · ' + (tp.cat || '');
-      card.appendChild(lv);
-      const teaser = document.createElement('p');
-      teaser.style.cssText = 'font-weight:600;margin:6px 0;font-size:13.5px';
-      teaser.textContent = tp.teaser;
-      card.appendChild(teaser);
+      const lvl = document.createElement('div');
+      lvl.className = 'meta';
+      lvl.textContent = '探索级 · ' + (tp.cat || '');
+      card.appendChild(lvl);
+      const p = document.createElement('p');
+      p.className = 'desc';
+      p.textContent = tp.teaser || '';
+      card.appendChild(p);
       const body = document.createElement('p');
-      body.style.cssText = 'font-size:13px;color:#334155;line-height:1.7';
-      body.textContent = tp.body;
+      body.style.cssText = 'font-size:13px;line-height:1.7;color:#475569;margin-top:6px';
+      body.textContent = tp.body || '';
       card.appendChild(body);
-
-      // 动画引擎挂载（每项都有：优先数据自带的，其次查映射表）
       const animKey = tp.anim || E.ANIM_MAP[tp.title];
       if (animKey) {
         const dv = document.createElement('div');
@@ -181,28 +224,17 @@
           if (started) return;
           started = true;
           try {
-            // 旧版演示（explore.js 内置 renderDemo）
-            if (tp.anim && (animKey === 'koch' || animKey === 'time' || animKey === 'golden') && E.renderDemo) E.renderDemo(dv, tp.demo);
-            else if (window.ExploreAnim && ExploreAnim[animKey]) ExploreAnim[animKey](dv);
+            if (window.ExploreAnim && ExploreAnim[animKey]) ExploreAnim[animKey](dv, tp);
             else dv.innerHTML = '<div class="note">动画引擎建设中。</div>';
-          } catch (e) { UI.showError(dv, e); }
+          } catch (e) { dv.innerHTML = ''; }
         };
-        // 滚动到视口才启动，避免 50 个动画同时跑
-        const io = new IntersectionObserver(function (ents) {
-          ents.forEach(function (en) { if (en.isIntersecting) { start(); io.disconnect(); } });
-        }, { rootMargin: '200px' });
+        const io = new IntersectionObserver(function (es) {
+          es.forEach(function (en) { if (en.isIntersecting) { start(); io.disconnect(); } });
+        }, { rootMargin: '300px' });
         io.observe(dv);
       }
-      if (tp.link) {
-        const a = document.createElement('a');
-        a.href = tp.link;
-        a.style.cssText = 'display:inline-block;margin-top:8px;color:var(--c-primary);font-size:13px;text-decoration:none;font-weight:600';
-        a.textContent = tp.linkText;
-        card.appendChild(a);
-      }
-      grid.appendChild(card);
-    });
-    root.appendChild(grid);
+      return card;
+    }
   };
 
   // 小型现场演示

@@ -50,10 +50,21 @@
 
     const head = document.createElement('div');
     head.className = 'module-head';
-    const stageTag = item.stage;
-    head.innerHTML = '<h1>' + item.title + '</h1><div class="meta">' + stageTag + ' · ' +
-      { math: '数学', physics: '物理', chemistry: '化学' }[item.subject] + ' · ' + item.branch + '</div>';
+    head.innerHTML = '<h1>' + item.title + '</h1><div class="meta">' + item.stage + ' · ' +
+      { math: '数学', physics: '物理', chemistry: '化学' }[item.subject] + ' · ' + item.branch +
+      (item.type === 'concept' ? ' · 概念讲解' : ' · 公式实验') + '</div>';
     root.appendChild(head);
+
+    // 学科动画理念（讲清原理优先，不强加实验）
+    const idea = document.createElement('div');
+    idea.className = 'note';
+    idea.style.marginBottom = '10px';
+    idea.textContent = {
+      math: '数学：有真实世界含义的公式/定理，用几何或生活场景演示出来（如面积模型、数轴、单位圆）；纯符号的则以计算与检测为主。',
+      physics: '物理：动画即实验——运动、力、光、电都有直观场景，调参数看现象，理解规律。',
+      chemistry: '化学：以反应演示为主——粒子重组、颜色变化、实验装置，看清"原子如何重新排队"。'
+    }[item.subject];
+    root.appendChild(idea);
 
     const def = item.def;
 
@@ -127,12 +138,10 @@
       }
 
       const sliderRefs = {};
-      let drawSweep = null; // 稍后由扫描卡片赋值
       (def.params || []).forEach(function (pm) {
         sliderRefs[pm.k] = UI.slider(panel, pm.label, pm.min, pm.max, pm.step, pm.v, function (v) {
           params[pm.k] = v;
           update();
-          if (drawSweep) drawSweep();
         }, pm.unit !== undefined ? { unit: pm.unit } : undefined);
       });
 
@@ -149,18 +158,6 @@
        * 3) 自动播放：所有参与参数同时来回扫（可勾选某个参数保持不变） */
       const allPms = def.params || [];
 
-      function numericOf(rows) {
-        if (!Array.isArray(rows)) return null;
-        for (let i = 0; i < rows.length; i++) {
-          const v = rows[i][1];
-          if (typeof v === 'number' && isFinite(v)) return v;
-          if (typeof v === 'string') {
-            const m = parseFloat(v);
-            if (isFinite(m) && /^[-+]?[\d.]/.test(v.trim())) return m;
-          }
-        }
-        return null;
-      }
       const computeRows = function () {
         try { return def.fn(params); } catch (e) { return null; }
       };
@@ -178,85 +175,9 @@
         if (!vizMounted) vizCard.remove();
       }
 
-      /* --- 2) 实验曲线 --- */
-      const sweepKey = def.sweep || ((allPms[0] || {}).k);
-      const sweepPm = allPms.find(function (p) { return p.k === sweepKey; });
-      const expCard = document.createElement('div');
-      expCard.className = 'viz-card';
-      expCard.innerHTML = '<h3>实验曲线 · "' + (sweepPm ? sweepPm.label.replace(/[（(].*$/, '') : '') + '" 全范围扫描</h3>';
-      left.appendChild(expCard);
-
-      const cw = document.createElement('canvas');
-      cw.style.cssText = 'width:100%;max-width:470px;border-radius:8px;background:#fff;display:block';
-      const CW = 470, CH = 210;
-      const dpr = Math.min(window.devicePixelRatio || 1, 2);
-      cw.width = CW * dpr; cw.height = CH * dpr;
-      expCard.appendChild(cw);
-      const cctx = cw.getContext('2d');
-      cctx.setTransform(dpr, 0, 0, dpr, 0, 0);
-
-      function sampleAt(val) {
-        const snap = {};
-        for (const k in params) snap[k] = params[k];
-        snap[sweepKey] = val;
-        try { return numericOf(def.fn(snap)); } catch (e) { return null; }
-      }
-      drawSweep = function () {
-        cctx.clearRect(0, 0, CW, CH);
-        if (!sweepPm) {
-          cctx.fillStyle = '#94a3b8'; cctx.font = '12px sans-serif';
-          cctx.fillText('本实验无可扫描参数，请直接拖动滑块操作。', 40, CH / 2);
-          return;
-        }
-        const pts = [];
-        for (let i = 0; i <= 90; i++) {
-          const val = sweepPm.min + (sweepPm.max - sweepPm.min) * i / 90;
-          const y = sampleAt(val);
-          if (y !== null) pts.push([val, y]);
-        }
-        if (!pts.length) {
-          cctx.fillStyle = '#94a3b8'; cctx.font = '12px sans-serif';
-          cctx.fillText('本实验结果为文字型，请直接拖动滑块操作。', 40, CH / 2);
-          return;
-        }
-        let ymin = Infinity, ymax = -Infinity;
-        pts.forEach(function (p) { if (p[1] < ymin) ymin = p[1]; if (p[1] > ymax) ymax = p[1]; });
-        if (ymax - ymin < 1e-9) { ymax = ymin + 1; }
-        const padL = 46, padR = 14, padT = 14, padB = 30;
-        function X(v) { return padL + (v - sweepPm.min) / (sweepPm.max - sweepPm.min) * (CW - padL - padR); }
-        function Y(v) { return padT + (1 - (v - ymin) / (ymax - ymin)) * (CH - padT - padB); }
-        cctx.strokeStyle = '#e2e8f0';
-        for (let i = 0; i <= 4; i++) {
-          const gy = padT + i * (CH - padT - padB) / 4;
-          cctx.beginPath(); cctx.moveTo(padL, gy); cctx.lineTo(CW - padR, gy); cctx.stroke();
-          cctx.fillStyle = '#94a3b8'; cctx.font = '10px sans-serif'; cctx.textAlign = 'right';
-          cctx.fillText(UI.fmt(ymax - i * (ymax - ymin) / 4, 2), padL - 5, gy + 3);
-        }
-        cctx.textAlign = 'left';
-        cctx.fillStyle = '#64748b'; cctx.font = '10.5px sans-serif';
-        cctx.fillText(UI.fmt(sweepPm.min, 2), padL, CH - 10);
-        cctx.fillText(UI.fmt(sweepPm.max, 2), CW - padR - 28, CH - 10);
-        cctx.fillText('结果随 "' + sweepPm.label.replace(/[（(].*$/, '') + '" 变化', padL, 11);
-        cctx.strokeStyle = '#2563eb'; cctx.lineWidth = 2;
-        cctx.beginPath();
-        pts.forEach(function (p, i) {
-          if (i === 0) cctx.moveTo(X(p[0]), Y(p[1])); else cctx.lineTo(X(p[0]), Y(p[1]));
-        });
-        cctx.stroke();
-        const cv = params[sweepKey], cy2 = sampleAt(cv);
-        if (cy2 !== null) {
-          cctx.setLineDash([3, 3]); cctx.strokeStyle = '#dc2626';
-          cctx.beginPath(); cctx.moveTo(X(cv), CH - padB); cctx.lineTo(X(cv), Y(cy2)); cctx.stroke();
-          cctx.setLineDash([]);
-          cctx.fillStyle = '#dc2626';
-          cctx.beginPath(); cctx.arc(X(cv), Y(cy2), 4.5, 0, Math.PI * 2); cctx.fill();
-        }
-      };
-
-      /* --- 3) 自动播放：所有参数同时来回扫 --- */
+      /* --- 2) 自动播放（参数面板内）：所有参数同时来回扫，可勾选排除 --- */
       const st = { playing: false, loop: true };
-      const ctrl = UI.animControls(expCard, st);
-      // 参数参与开关（取消勾选 = 该参数保持不动）
+      const ctrl = UI.animControls(panel, st);
       const enabled = {};
       const phases = {};
       allPms.forEach(function (pm) { enabled[pm.k] = true; phases[pm.k] = Math.random() * Math.PI * 2; });
@@ -279,7 +200,7 @@
           lab.appendChild(document.createTextNode(pm.label.replace(/[（(].*$/, '')));
           pWrap.appendChild(lab);
         });
-        expCard.appendChild(pWrap);
+        panel.appendChild(pWrap);
       }
       let autoT = 0;
       (function frame() {
@@ -289,7 +210,6 @@
           allPms.forEach(function (pm) {
             if (!enabled[pm.k]) return;
             anyActive = true;
-            // 每个参数按自己的相位做平滑往复（正弦），避免机械同步
             const ph = (Math.sin(autoT * (0.7 + phases[pm.k] * 0.15) + phases[pm.k]) + 1) / 2;
             let val = pm.min + (pm.max - pm.min) * ph;
             val = Math.round(val / pm.step) * pm.step;
@@ -299,16 +219,9 @@
           });
           if (!anyActive) { st.playing = false; ctrl.setPlaying(false); }
           update();
-          drawSweep();
         }
         window.requestAnimationFrame(frame);
       })();
-
-      const tip = document.createElement('div');
-      tip.className = 'note';
-      tip.textContent = '点击播放：所有勾选的参数同时自动来回变化，观察结果如何联动。取消某个参数的勾选，它就会保持不动。';
-      expCard.appendChild(tip);
-      drawSweep();
 
       /* calc 型也挂针对性场景动画（如有显式映射），与概念件统一 */
       if (window.ConceptMap && window.ConceptAnim && ConceptMap.has(item.id)) {

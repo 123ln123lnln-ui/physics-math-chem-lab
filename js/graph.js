@@ -1,7 +1,8 @@
-/* graph.js — 数理化知识图谱：横排同心圆盘 + 考点频率 Z 轴（等距 3D 投影）
- * 数据：注册表(243) + 探索篇(60) = 300+ 节点。
- * 层级：学科主干 → 学段/类别 → 章节 → 小节 → 知识点（同心环）。
- * Z 轴：考点频率 1-5，频率越高节点抬升越高（立体柱）。
+/* graph.js — 知识图谱 · 真 3D 星图
+ * 布局：四个圆盘横向排布（数学/物理/化学/探索），每盘内同心环 = 层级。
+ * Z 轴 = 连接度（节点真实边数，知识关联越密抬得越高）——取代不可靠的"考点频率"。
+ * 交互：拖拽 = 轨道旋转（绕 Y/X 轴）· 滚轮 = 缩放 · 悬停高亮 · 点击弹知识小卡片。
+ * 数据：注册表 243 + 探索 60 = 300+ 节点，含跨学科连线。
  */
 (function () {
   const T = {};
@@ -101,30 +102,28 @@
     return { lit: lit, total: total, built: built };
   };
 
-  /* ===== 横排 3D 图谱渲染 ===== */
+  /* ===== 真 3D 渲染 ===== */
   T.render = function (root) {
     root.className = 'graph-page';
     const h1 = document.createElement('h1');
-    h1.textContent = '知识图谱 · 3D 考点星图';
+    h1.textContent = '知识图谱 · 3D 关联星图';
     root.appendChild(h1);
 
     const stat = T.countLit();
     const legend = document.createElement('div');
     legend.className = 'graph-legend';
-    legend.textContent = '横向四个圆盘（数学/物理/化学/探索）· 同心环 = 层级 · 立体高度 = 考点频率（Z 轴，越高越常考）。左右滚动查看 · 拖拽节点 · 悬停高亮 · 点击弹知识小卡片。★金=已点亮，进度 ' +
+    legend.textContent = '拖拽旋转 · 滚轮缩放 · 悬停高亮关联 · 点击弹知识小卡片。高度(Z轴) = 连接度：一个知识与越多知识相连，站得越高。四个圆盘：数学/物理/化学/探索，金色虚线 = 跨学科关联。★金=已点亮，进度 ' +
       stat.lit + ' / ' + stat.total + '。';
     root.appendChild(legend);
 
     const holder = document.createElement('div');
-    holder.style.cssText = 'position:relative;background:#0f172a;border-radius:12px;overflow-x:auto;overflow-y:hidden;height:780px';
+    holder.style.cssText = 'position:relative;background:#0b1120;border-radius:12px;overflow:hidden;height:720px;cursor:grab';
     root.appendChild(holder);
     const canvas = document.createElement('canvas');
     holder.appendChild(canvas);
     const tip = document.createElement('div');
     tip.style.cssText = 'position:fixed;pointer-events:none;background:#1e293b;color:#e2e8f0;border:1px solid #475569;border-radius:8px;padding:6px 10px;font-size:12px;display:none;z-index:99;max-width:280px';
     document.body.appendChild(tip);
-
-    // 知识小卡片弹层
     const card = document.createElement('div');
     card.style.cssText = 'position:fixed;left:50%;top:50%;transform:translate(-50%,-50%);width:min(430px,92%);background:#fff;border-radius:14px;box-shadow:0 12px 40px rgba(0,0,0,.5);padding:20px;z-index:100;display:none;max-height:80%;overflow-y:auto';
     document.body.appendChild(card);
@@ -134,39 +133,34 @@
     function closeCard() { card.style.display = 'none'; shade.style.display = 'none'; }
     shade.addEventListener('click', closeCard);
 
-    const DISC = 760;
-    const W = DISC * 4 + 60, H = 780;
+    const W = holder.clientWidth || 1000, H = 720;
     const dpr = Math.min(window.devicePixelRatio || 1, 1.5);
     canvas.width = W * dpr; canvas.height = H * dpr;
-    canvas.style.width = W + 'px'; canvas.style.height = H + 'px';
+    canvas.style.width = '100%'; canvas.style.height = '100%';
     const ctx = canvas.getContext('2d');
     ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
 
-    const SQUASH = 0.42;               // 等距投影压扁系数
+    // ---- 构建节点 ----
+    const nodes = [], edges = [];
     const centers = {
-      math: [DISC * 0.5 + 30, 470],
-      physics: [DISC * 1.5 + 30, 470],
-      chemistry: [DISC * 2.5 + 30, 470],
-      explore: [DISC * 3.5 + 30, 470]
+      math: [-1050, 0], physics: [-350, 0], chemistry: [350, 0], explore: [1050, 0]
     };
     const ringR = { 1: 0, 2: 105, 3: 195, 4: 275, 5: 345 };
-    const liftOf = function (n) { return ((n.freq || 1) - 1) * 16; };
-
-    const nodes = [], edges = [];
     function addNode(n) {
-      const c = centers[n.subject] || [W / 2, H / 2];
+      const c = centers[n.subject] || [0, 0];
       const rr = ringR[n.level || 3] || 180;
       const a = Math.random() * Math.PI * 2;
-      n.fx = c[0] + Math.cos(a) * rr * (0.7 + Math.random() * 0.4);
-      n.fy = c[1] + Math.sin(a) * rr * (0.7 + Math.random() * 0.4);
+      n.x = c[0] + Math.cos(a) * rr * (0.7 + Math.random() * 0.4);
+      n.y = Math.sin(a) * rr * (0.7 + Math.random() * 0.4);
+      n.z = 0; // 稍后由连接度决定
       n.vx = 0; n.vy = 0;
+      n.deg = 0;
       nodes.push(n);
       return n;
     }
     const litKey = function (n) { return n.kind === 'kb' ? 'kb-' + n.kid : (n.module || null); };
     const isLitNode = function (n) { const k = litKey(n); return !!(k && window.Progress && Progress.isLit(k)); };
 
-    // ---- 构建节点（注册表三科 + 探索盘） ----
     const SEC_RULES = {
       '数与式': function (t) { return /式|因式|分式|根式/.test(t) ? '式与运算' : '数与运算'; },
       '方程与不等式': function (t) { return /不等式/.test(t) ? '不等式' : '方程'; },
@@ -204,17 +198,16 @@
 
     if (window.Reg && Reg.count() > 0) {
       [['math', '数学之树', '#2563eb'], ['physics', '物理之树', '#dc2626'], ['chemistry', '化学之树', '#059669']].forEach(function (s) {
-        const rootHub = addNode({ name: s[1], type: 'root', subject: s[0], r: 15, color: s[2], kind: 'none', level: 1, freq: 1 });
-        rootHub.fixed = true;
+        const rootHub = addNode({ name: s[1], type: 'root', subject: s[0], r: 15, color: s[2], kind: 'none', level: 1 });
         ['初中', '高中'].forEach(function (stage) {
           const list = Reg.list(s[0], stage);
           if (!list.length) return;
-          const stageHub = addNode({ name: stage, type: 'hub', subject: s[0], r: 9, color: s[2], kind: 'none', level: 2, freq: 1 });
+          const stageHub = addNode({ name: stage, type: 'hub', subject: s[0], r: 9, color: s[2], kind: 'none', level: 2 });
           edges.push({ a: rootHub, b: stageHub, len: 110, k: 0.02, cross: false });
           const branches = {};
           list.forEach(function (it) { branches[it.branch] = true; });
           Object.keys(branches).forEach(function (br) {
-            const brHub = addNode({ name: br, type: 'hub', subject: s[0], r: 6.5, color: s[2], kind: 'none', level: 3, freq: 1 });
+            const brHub = addNode({ name: br, type: 'hub', subject: s[0], r: 6.5, color: s[2], kind: 'none', level: 3 });
             edges.push({ a: stageHub, b: brHub, len: 80, k: 0.025, cross: false });
             const rule = SEC_RULES[br];
             const items = list.filter(function (it) { return it.branch === br; });
@@ -228,92 +221,101 @@
             secNames.forEach(function (sn) {
               let secHub = brHub;
               if (secNames.length >= 2) {
-                secHub = addNode({ name: sn, type: 'hub', subject: s[0], r: 5, color: s[2], kind: 'none', level: 4, freq: 1 });
+                secHub = addNode({ name: sn, type: 'hub', subject: s[0], r: 5, color: s[2], kind: 'none', level: 4 });
                 edges.push({ a: brHub, b: secHub, len: 55, k: 0.03, cross: false });
               }
               secs[sn].forEach(function (it) {
-                const nd = addNode({ name: it.title, type: 'topic', subject: s[0], r: 4, color: s[2], kind: 'kb', kid: it.id, lit: false, level: 5, freq: it.def && it.def.freq ? it.def.freq : 2 });
+                const nd = addNode({ name: it.title, type: 'topic', subject: s[0], r: 4, color: s[2], kind: 'kb', kid: it.id, lit: false, level: 5 });
                 edges.push({ a: secHub, b: nd, len: 30, k: 0.055, cross: false });
               });
             });
           });
         });
       });
-      // 探索盘（第四盘）
       if (window.ExploreData) {
-        const eRoot = addNode({ name: '探索之树', type: 'root', subject: 'explore', r: 15, color: '#f59e0b', kind: 'none', level: 1, freq: 1 });
-        eRoot.fixed = true;
+        const eRoot = addNode({ name: '探索之树', type: 'root', subject: 'explore', r: 15, color: '#f59e0b', kind: 'none', level: 1 });
         const cats = {};
         ExploreData.forEach(function (d) { const c = d.cat || '交叉'; cats[c] = cats[c] || []; cats[c].push(d); });
         Object.keys(cats).forEach(function (c) {
-          const cHub = addNode({ name: c, type: 'hub', subject: 'explore', r: 6, color: '#f59e0b', kind: 'none', level: 2, freq: 1 });
+          const cHub = addNode({ name: c, type: 'hub', subject: 'explore', r: 6, color: '#f59e0b', kind: 'none', level: 2 });
           edges.push({ a: eRoot, b: cHub, len: 100, k: 0.025, cross: false });
           cats[c].forEach(function (d) {
-            const nd = addNode({ name: d.title, type: 'topic', subject: 'explore', r: 3.5, color: '#f59e0b', kind: 'exp', lit: false, level: 3, freq: 1 });
+            const nd = addNode({ name: d.title, type: 'topic', subject: 'explore', r: 3.5, color: '#f59e0b', kind: 'exp', lit: false, level: 3 });
             edges.push({ a: cHub, b: nd, len: 42, k: 0.04, cross: false });
           });
         });
       }
-      nodes.forEach(function (n) { n.lit = isLitNode(n); if (n.lit && n.type === 'topic') n.r = 6; });
       // 跨学科连线
       const byTitle = {};
       nodes.forEach(function (n) { if (n.type === 'topic') byTitle[n.name] = n; });
       function baseName(s) { return s.replace(/[（(].*?[)）]/g, '').trim(); }
       T.crossLinks.forEach(function (l) {
         const a = byTitle[baseName(l.from)], b = byTitle[baseName(l.to)];
-        if (a && b) edges.push({ a: a, b: b, len: 200, k: 0.004, cross: true, text: l.text });
+        if (a && b) edges.push({ a: a, b: b, len: 300, k: 0.003, cross: true, text: l.text });
+      });
+      // 连接度 → Z 轴高度
+      edges.forEach(function (e) { e.a.deg++; e.b.deg++; });
+      nodes.forEach(function (n) {
+        n.z = Math.min(160, n.deg * 14);
+        n.lit = isLitNode(n);
+        if (n.lit && n.type === 'topic') n.r = 6;
       });
     }
 
-    // ---- 投影：平面(fx,fy) → 屏幕 ----
-    function proj(n) {
-      const c = centers[n.subject];
-      return [n.fx, c[1] + (n.fy - c[1]) * SQUASH - liftOf(n)];
+    // ---- 3D 相机 ----
+    let yaw = 0.35, pitch = 0.42, zoom = 0.62;
+    const CAMD = 2200;
+    function project(n) {
+      const cy = Math.cos(yaw), sy = Math.sin(yaw);
+      const cp = Math.cos(pitch), sp = Math.sin(pitch);
+      const x1 = n.x * cy - n.z * sy * 0; // 绕Y轴旋转 x,z
+      const z1 = n.x * sy + n.z * cy;
+      const x2 = x1;
+      const y2 = n.y * cp - z1 * sp;
+      const z2 = n.y * sp + z1 * cp;
+      const s = CAMD / (CAMD + z2) * zoom;
+      return [W / 2 + x2 * s, H / 2 + y2 * s, z2, s];
     }
 
-    // ---- 物理模拟（平面坐标） ----
-    let alpha = 1, dragging = null, panning = false, movedDist = 0;
+    // ---- 平面力导向（只调 x,y；z 固定） ----
+    let alpha = 1;
     function tick() {
-      if (!dragging && alpha < 0.005) return;
-      const act = dragging ? Math.max(alpha, 0.12) : alpha;
+      if (alpha < 0.005) return;
       for (let i = 0; i < nodes.length; i++) {
         for (let j = i + 1; j < nodes.length; j++) {
           const A = nodes[i], B = nodes[j];
-          if (A.subject !== B.subject) continue; // 斥力只在本盘内（性能+不串盘）
-          let dx = B.fx - A.fx, dy = B.fy - A.fy;
+          if (A.subject !== B.subject) continue;
+          let dx = B.x - A.x, dy = B.y - A.y;
           let d2 = dx * dx + dy * dy;
           if (d2 < 1) { d2 = 1; dx = Math.random() - 0.5; dy = Math.random() - 0.5; }
           const d = Math.sqrt(d2);
-          const f = 1800 / d2;
-          if (!A.fixed) { A.vx -= dx / d * f; A.vy -= dy / d * f; }
-          if (!B.fixed) { B.vx += dx / d * f; B.vy += dy / d * f; }
+          const f = 1600 / d2;
+          A.vx -= dx / d * f; A.vy -= dy / d * f;
+          B.vx += dx / d * f; B.vy += dy / d * f;
         }
       }
       edges.forEach(function (e) {
-        const dx = e.b.fx - e.a.fx, dy = e.b.fy - e.a.fy;
+        const dx = e.b.x - e.a.x, dy = e.b.y - e.a.y;
         const d = Math.sqrt(dx * dx + dy * dy) || 1;
         const f = (d - e.len) * e.k;
-        if (!e.a.fixed) { e.a.vx += dx / d * f; e.a.vy += dy / d * f; }
-        if (!e.b.fixed) { e.b.vx -= dx / d * f; e.b.vy -= dy / d * f; }
+        e.a.vx += dx / d * f; e.a.vy += dy / d * f;
+        e.b.vx -= dx / d * f; e.b.vy -= dy / d * f;
       });
       nodes.forEach(function (n) {
-        if (n.fixed) return;
         const c = centers[n.subject];
-        const dx = n.fx - c[0], dy = n.fy - c[1];
+        const dx = n.x - c[0], dy = n.y - c[1];
         const d = Math.hypot(dx, dy) || 1;
         const target = ringR[n.level || 3] || 180;
         const f = (target - d) * 0.025;
         n.vx += dx / d * f; n.vy += dy / d * f;
         n.vx *= 0.86; n.vy *= 0.86;
-        n.fx += n.vx * act; n.fy += n.vy * act;
-        n.fx = Math.max(20, Math.min(W - 20, n.fx));
-        n.fy = Math.max(120, Math.min(H - 60, n.fy));
+        n.x += n.vx * alpha; n.y += n.vy * alpha;
       });
-      if (!dragging) alpha *= 0.99;
+      alpha *= 0.99;
     }
 
-    // ---- 交互 ----
-    let hover = null;
+    // ---- 交互：旋转/缩放/拾取 ----
+    let hover = null, dragging = false, lastM = null, movedDist = 0;
     function toCanvas(ev) {
       const r = canvas.getBoundingClientRect();
       return [ev.clientX - r.left, ev.clientY - r.top];
@@ -321,10 +323,10 @@
     function findNode(mx, my) {
       let best = null, bd = 1e9;
       nodes.forEach(function (n) {
-        const p = proj(n);
+        const p = project(n);
+        const rr = Math.max(6, n.r * p[3] + 4);
         const d = (p[0] - mx) * (p[0] - mx) + (p[1] - my) * (p[1] - my);
-        const rr = (n.r + 7) * (n.r + 7);
-        if (d < rr && d < bd) { bd = d; best = n; }
+        if (d < rr * rr && d < bd) { bd = d; best = n; }
       });
       return best;
     }
@@ -333,58 +335,52 @@
       edges.forEach(function (e) { if (e.a === n) set.add(e.b); if (e.b === n) set.add(e.a); });
       return set;
     }
-    let lastMouse = null;
     canvas.addEventListener('mousedown', function (ev) {
-      const m = toCanvas(ev);
-      movedDist = 0;
-      const n = findNode(m[0], m[1]);
-      if (n) { dragging = n; n.fixed = true; alpha = Math.max(alpha, 0.2); } else { panning = true; }
-      lastMouse = m;
+      dragging = true; movedDist = 0; lastM = toCanvas(ev);
+      holder.style.cursor = 'grabbing';
     });
     window.addEventListener('mousemove', function (ev) {
       const m = toCanvas(ev);
-      if (dragging) {
-        const c = centers[dragging.subject];
-        const nfx = m[0], nfy = c[1] + (m[1] + liftOf(dragging) - c[1]) / SQUASH;
-        movedDist += Math.abs(nfx - dragging.fx) + Math.abs(nfy - dragging.fy);
-        dragging.fx = nfx; dragging.fy = nfy;
-        dragging.vx = 0; dragging.vy = 0;
-        alpha = Math.max(alpha, 0.4);
+      if (dragging && lastM) {
+        const dx = m[0] - lastM[0], dy = m[1] - lastM[1];
+        movedDist += Math.abs(dx) + Math.abs(dy);
+        yaw += dx * 0.005;
+        pitch = Math.max(0.1, Math.min(1.4, pitch + dy * 0.005));
         tip.style.display = 'none';
-      } else if (panning && lastMouse) {
-        holder.scrollLeft -= (m[0] - lastMouse[0]);
-        movedDist += Math.abs(m[0] - lastMouse[0]);
       } else {
         hover = findNode(m[0], m[1]);
         if (hover) {
           tip.style.display = 'block';
           tip.style.left = (ev.clientX + 14) + 'px';
           tip.style.top = (ev.clientY + 14) + 'px';
-          const freq = hover.freq || 1;
           const st = hover.type === 'root' ? '学科主干' : hover.type === 'hub' ? '分支层' :
-            (hover.kind === 'kb' ? (hover.lit ? '★已点亮 · 点击进入' : '考点频率 ' + freq + ' · 点击进入') :
+            (hover.kind === 'kb' ? (hover.lit ? '★已点亮 · 点击进入' : '连接度 ' + hover.deg + ' · 点击进入') :
               hover.kind === 'exp' ? '探索主题 · 点击查看' : '');
           tip.innerHTML = '<b>' + hover.name + '</b><br><span style="color:#94a3b8">' + st + '</span>';
         } else tip.style.display = 'none';
       }
-      lastMouse = m;
+      lastM = m;
     });
     window.addEventListener('mouseup', function () {
-      if (dragging) {
-        dragging.fixed = false;
-        if (movedDist < 5) openCard(dragging);
-        dragging = null;
+      if (dragging && movedDist < 5 && lastM) {
+        const n = findNode(lastM[0], lastM[1]);
+        if (n) openCard(n);
       }
-      panning = false;
+      dragging = false;
+      holder.style.cursor = 'grab';
     });
+    holder.addEventListener('wheel', function (ev) {
+      ev.preventDefault();
+      zoom = Math.max(0.25, Math.min(2.2, zoom * (ev.deltaY > 0 ? 0.9 : 1.1)));
+    }, { passive: false });
 
     function openCard(nd) {
       card.innerHTML = '';
       const it = nd.kind === 'kb' ? Reg.byId[nd.kid] : null;
       const meta = document.createElement('div');
       meta.style.cssText = 'font-size:11px;color:#64748b;margin-bottom:4px';
-      meta.textContent = it ? it.stage + ' · ' + it.branch + ' · 考点频率 ' + (it.def.freq || 2) + '/5' :
-        (nd.kind === 'exp' ? '探索篇 · ' + (nd.name ? '' : '') + '自由探索' : '分支');
+      meta.textContent = it ? it.stage + ' · ' + it.branch + ' · 连接度 ' + nd.deg :
+        (nd.kind === 'exp' ? '探索篇 · 自由探索' : '分支');
       card.appendChild(meta);
       const h = document.createElement('h3');
       h.style.cssText = 'margin:0 0 10px;font-size:18px';
@@ -439,10 +435,9 @@
         btnRow.appendChild(go); btnRow.appendChild(close);
         card.appendChild(btnRow);
       } else {
-        const cnt = nodes.filter(function (x) { return x.subject === nd.subject && x.type === 'topic'; }).length;
         const p = document.createElement('p');
         p.style.cssText = 'font-size:13px;color:#475569';
-        p.textContent = '该分支共 ' + cnt + ' 个知识点节点。';
+        p.textContent = '该分支节点，连接度 ' + nd.deg + '。';
         card.appendChild(p);
         const close = document.createElement('button');
         close.className = 'btn secondary'; close.textContent = '关闭';
@@ -453,86 +448,77 @@
       shade.style.display = 'block';
     }
 
-    // ---- 绘制 ----
+    // ---- 绘制（深度排序） ----
     function draw() {
       ctx.clearRect(0, 0, W, H);
-      // Z 轴图例（左侧固定）
-      ctx.strokeStyle = '#475569';
-      ctx.beginPath(); ctx.moveTo(30, 120); ctx.lineTo(30, 320); ctx.stroke();
-      ctx.fillStyle = '#94a3b8'; ctx.font = '10px sans-serif';
-      ctx.fillText('Z 轴', 22, 110);
-      ctx.fillText('考点频率', 12, 340);
-      for (let f = 1; f <= 5; f++) {
-        const y = 320 - (f - 1) * 40;
-        ctx.strokeStyle = '#475569';
-        ctx.beginPath(); ctx.moveTo(26, y); ctx.lineTo(34, y); ctx.stroke();
-        ctx.fillStyle = f >= 4 ? '#f59e0b' : '#64748b';
-        ctx.fillText('频率' + f, 38, y + 3);
-      }
       const hi = hover ? neighbors(hover) : null;
-
-      // 圆盘参考环 + 标题
-      [['math', '数学之树', '#2563eb'], ['physics', '物理之树', '#dc2626'], ['chemistry', '化学之树', '#059669'], ['explore', '探索之树', '#f59e0b']].forEach(function (s) {
-        const c = centers[s[0]];
-        ctx.strokeStyle = 'rgba(148,163,184,.1)';
-        ctx.setLineDash([4, 6]);
-        [105, 195, 275, 345].forEach(function (r) {
-          ctx.beginPath(); ctx.ellipse(c[0], c[1], r, r * SQUASH, 0, 0, Math.PI * 2); ctx.stroke();
-        });
-        ctx.setLineDash([]);
-        ctx.fillStyle = s[2];
-        ctx.font = 'bold 20px sans-serif';
-        ctx.textAlign = 'center';
-        ctx.fillText(s[1], c[0], c[1] - 345 * SQUASH - 60);
-        ctx.textAlign = 'left';
-      });
-
       // 边
       edges.forEach(function (e) {
-        const pa = proj(e.a), pb = proj(e.b);
+        const pa = project(e.a), pb = project(e.b);
         const dim = hi && !(hi.has(e.a) && hi.has(e.b));
-        ctx.strokeStyle = e.cross ? 'rgba(245,158,11,' + (dim ? 0.08 : 0.5) + ')' :
-          'rgba(148,163,184,' + (dim ? 0.04 : 0.14) + ')';
-        ctx.lineWidth = e.cross ? 1.5 : 1;
-        if (e.cross) ctx.setLineDash([6, 5]); else ctx.setLineDash([]);
+        ctx.strokeStyle = e.cross ? 'rgba(245,158,11,' + (dim ? 0.06 : 0.45) + ')' :
+          'rgba(148,163,184,' + (dim ? 0.03 : 0.12) + ')';
+        ctx.lineWidth = e.cross ? 1.4 : 0.8;
+        if (e.cross) ctx.setLineDash([5, 5]); else ctx.setLineDash([]);
         ctx.beginPath(); ctx.moveTo(pa[0], pa[1]); ctx.lineTo(pb[0], pb[1]); ctx.stroke();
       });
       ctx.setLineDash([]);
-
-      // 节点（先画立体柱，再画球）
-      nodes.forEach(function (n) {
-        const p = proj(n);
-        const lift = liftOf(n);
+      // 节点按深度排序（远→近）
+      const sorted = nodes.map(function (n) { return [project(n), n]; })
+        .sort(function (a, b) { return b[0][2] - a[0][2]; });
+      sorted.forEach(function (pair) {
+        const p = pair[0], n = pair[1];
         const dim = hi && !hi.has(n);
-        ctx.globalAlpha = dim ? 0.15 : 1;
-        // 立体柱（频率抬升）
-        if (lift > 0 && n.type === 'topic') {
-          const c = centers[n.subject];
-          const baseY = c[1] + (n.fy - c[1]) * SQUASH;
-          ctx.strokeStyle = 'rgba(245,158,11,.4)';
-          ctx.lineWidth = 1.5;
-          ctx.beginPath(); ctx.moveTo(p[0], baseY); ctx.lineTo(p[0], p[1]); ctx.stroke();
+        const depthFade = Math.max(0.25, Math.min(1, 1.25 - p[2] / 1600));
+        ctx.globalAlpha = (dim ? 0.12 : 1) * depthFade;
+        const rr = Math.max(1.5, n.r * p[3]);
+        // Z 轴柱线（连接度抬升）
+        if (n.z > 0 && n.type === 'topic') {
+          const base = project({ x: n.x, y: n.y, z: 0 });
+          ctx.strokeStyle = 'rgba(245,158,11,.35)';
+          ctx.lineWidth = 1;
+          ctx.beginPath(); ctx.moveTo(base[0], base[1]); ctx.lineTo(p[0], p[1]); ctx.stroke();
         }
         const glow = n.lit || n === hover;
-        if (glow) { ctx.shadowColor = n.lit ? '#f59e0b' : n.color; ctx.shadowBlur = 14; }
-        ctx.beginPath(); ctx.arc(p[0], p[1], n.r, 0, Math.PI * 2);
-        ctx.fillStyle = n.lit ? '#f59e0b' : (n.type === 'root' ? n.color : n.type === 'hub' ? n.color : (n.subject === 'explore' ? 'rgba(251,191,36,.85)' : 'rgba(226,232,240,.9)'));
+        if (glow) { ctx.shadowColor = n.lit ? '#f59e0b' : n.color; ctx.shadowBlur = 12; }
+        ctx.beginPath(); ctx.arc(p[0], p[1], rr, 0, Math.PI * 2);
+        ctx.fillStyle = n.lit ? '#f59e0b' : (n.type === 'root' ? n.color : n.type === 'hub' ? n.color : (n.subject === 'explore' ? 'rgba(251,191,36,.85)' : 'rgba(226,232,240,.92)'));
         ctx.fill();
         ctx.shadowBlur = 0;
-        if (n.type === 'topic' && !n.lit && n.kind === 'kb') { ctx.strokeStyle = n.color; ctx.lineWidth = 1.2; ctx.stroke(); }
-        const showLabel = n.type !== 'topic' || n.lit || (hi && hi.has(n)) || n.freq >= 4;
+        if (n.type === 'topic' && !n.lit && n.kind === 'kb') { ctx.strokeStyle = n.color; ctx.lineWidth = 1; ctx.stroke(); }
+        const showLabel = n.type !== 'topic' || n.lit || (hi && hi.has(n)) || n.deg >= 5;
         if (showLabel) {
           ctx.fillStyle = n.type === 'topic' ? '#cbd5e1' : '#fff';
-          ctx.font = (n.type === 'root' ? 'bold 13px' : '10px') + ' sans-serif';
+          ctx.font = (n.type === 'root' ? 'bold ' + Math.round(13 * p[3]) + 'px' : Math.round(10 * p[3]) + 'px') + ' sans-serif';
           ctx.textAlign = 'center';
-          ctx.fillText(n.name, p[0], p[1] - n.r - 4);
+          ctx.fillText(n.name, p[0], p[1] - rr - 4);
           ctx.textAlign = 'left';
         }
         ctx.globalAlpha = 1;
       });
+      // 学科标签
+      [['math', '数学', '#2563eb'], ['physics', '物理', '#dc2626'], ['chemistry', '化学', '#059669'], ['explore', '探索', '#f59e0b']].forEach(function (s) {
+        const p = project({ x: centers[s[0]][0], y: 0, z: 200 });
+        ctx.fillStyle = s[2];
+        ctx.font = 'bold 18px sans-serif';
+        ctx.textAlign = 'center';
+        ctx.fillText(s[1], p[0], p[1]);
+        ctx.textAlign = 'left';
+      });
+      // Z 轴图例
+      ctx.strokeStyle = '#475569';
+      ctx.beginPath(); ctx.moveTo(30, 140); ctx.lineTo(30, 340); ctx.stroke();
+      ctx.fillStyle = '#94a3b8'; ctx.font = '10px sans-serif';
+      ctx.fillText('Z = 连接度', 14, 130);
+      ctx.fillText('关联越多越高', 10, 356);
+      for (let f = 0; f <= 4; f++) {
+        const y = 340 - f * 50;
+        ctx.beginPath(); ctx.moveTo(26, y); ctx.lineTo(34, y); ctx.stroke();
+        ctx.fillStyle = f >= 3 ? '#f59e0b' : '#64748b';
+        ctx.fillText(f * 3 + '+', 38, y + 3);
+      }
     }
 
-    // 视口感知
     let inView = true;
     const io = new IntersectionObserver(function (ents) {
       ents.forEach(function (en) { inView = en.isIntersecting; });
@@ -546,9 +532,9 @@
 
     const resetBtn = document.createElement('button');
     resetBtn.className = 'btn secondary';
-    resetBtn.style.cssText = 'position:sticky;top:12px;left:12px;z-index:6;background:#1e293b;color:#e2e8f0;border:1px solid #475569';
-    resetBtn.textContent = '⟲ 重新布局';
-    resetBtn.addEventListener('click', function () { alpha = 1; });
+    resetBtn.style.cssText = 'position:absolute;top:12px;right:12px;z-index:6;background:#1e293b;color:#e2e8f0;border:1px solid #475569';
+    resetBtn.textContent = '⟲ 重置视角';
+    resetBtn.addEventListener('click', function () { yaw = 0.35; pitch = 0.42; zoom = 0.62; alpha = 0.6; });
     holder.appendChild(resetBtn);
   };
 
