@@ -253,11 +253,30 @@
         const a = byTitle[baseName(l.from)], b = byTitle[baseName(l.to)];
         if (a && b) edges.push({ a: a, b: b, len: 300, k: 0.003, cross: true, text: l.text });
       });
+      // 前置依赖边（星图 2.0）：被依赖者 → 依赖者
+      const byKid = {};
+      nodes.forEach(function (n) { if (n.kind === 'kb') byKid[n.kid] = n; });
+      if (window.Deps) {
+        Object.keys(Deps).forEach(function (id) {
+          const b = byKid[id];
+          if (!b) return;
+          (Deps[id] || []).forEach(function (p) {
+            const a = byKid[p];
+            if (a) edges.push({ a: a, b: b, len: 120, k: 0.01, cross: false, dep: true });
+          });
+        });
+      }
       // 连接度 → Z 轴高度
       edges.forEach(function (e) { e.a.deg++; e.b.deg++; });
       nodes.forEach(function (n) {
         n.z = Math.min(160, n.deg * 14);
         n.lit = isLitNode(n);
+        if (n.kind === 'kb' && window.Progress) {
+          const g = Progress.checkGate(n.kid);
+          n.gate = n.lit ? 'lit' : (g.ok ? 'avail' : 'locked');
+          n.miss = g.missing;
+          n.mastery = Progress.mastery(litKey(n));
+        }
         if (n.lit && n.type === 'topic') n.r = 6;
       });
     }
@@ -387,6 +406,47 @@
       h.innerHTML = nd.name + (nd.lit ? ' <span style="color:#f59e0b">★ 已点亮</span>' : '');
       card.appendChild(h);
       if (it) {
+        // 星图 2.0：前置门槛 /路径回望
+        if (nd.kind === 'kb' && window.Deps) {
+          const deps = Deps[it.id] || [];
+          if (!nd.lit && nd.gate === 'locked' && deps.length) {
+            const gdiv = document.createElement('div');
+            gdiv.style.cssText = 'background:#fef3c7;border:1px solid #f59e0b;border-radius:8px;padding:8px 10px;font-size:12.5px;margin-bottom:8px;color:#92400e';
+            gdiv.innerHTML = '🔒 建议先点亮：';
+            deps.forEach(function (pid) {
+              const pn = byKid[pid];
+              if (!pn) return;
+              const chip = document.createElement('a');
+              chip.style.cssText = 'display:inline-block;margin:2px 4px 2px 0;padding:1px 8px;background:#fff;border:1px solid #f59e0b;border-radius:10px;cursor:pointer;color:#92400e';
+              chip.textContent = pn.name;
+              chip.addEventListener('click', function () { openCard(pn); });
+              gdiv.appendChild(chip);
+            });
+            card.appendChild(gdiv);
+          }
+          const unlocks = (window.DepsUnlocks && DepsUnlocks[it.id]) || [];
+          if (nd.lit && unlocks.length) {
+            const udiv = document.createElement('div');
+            udiv.style.cssText = 'background:#ecfdf5;border:1px solid #6ee7b7;border-radius:8px;padding:8px 10px;font-size:12.5px;margin-bottom:8px;color:#065f46';
+            udiv.innerHTML = '🗝️ 已为你解锁：';
+            unlocks.slice(0, 4).forEach(function (pid) {
+              const pn = byKid[pid];
+              if (!pn) return;
+              const chip = document.createElement('a');
+              chip.style.cssText = 'display:inline-block;margin:2px 4px 2px 0;padding:1px 8px;background:#fff;border:1px solid #6ee7b7;border-radius:10px;cursor:pointer;color:#065f46';
+              chip.textContent = pn.name;
+              chip.addEventListener('click', function () { openCard(pn); });
+              udiv.appendChild(chip);
+            });
+            card.appendChild(udiv);
+          }
+          if (nd.lit && typeof nd.mastery === 'number' && nd.mastery < 1) {
+            const rdiv = document.createElement('div');
+            rdiv.style.cssText = 'background:#eff6ff;border:1px solid #93c5fd;border-radius:8px;padding:8px 10px;font-size:12.5px;margin-bottom:8px;color:#1e40af';
+            rdiv.innerHTML = '🕐 记忆在变暗（掌握度 ' + Math.round(nd.mastery * 100) + '%）——去复习答对一题即可回满';
+            card.appendChild(rdiv);
+          }
+        }
         if (it.def.formula) {
           const fe = document.createElement('div');
           fe.style.cssText = 'text-align:center;margin:8px 0';
@@ -456,10 +516,18 @@
       edges.forEach(function (e) {
         const pa = project(e.a), pb = project(e.b);
         const dim = hi && !(hi.has(e.a) && hi.has(e.b));
-        ctx.strokeStyle = e.cross ? 'rgba(245,158,11,' + (dim ? 0.06 : 0.45) + ')' :
-          'rgba(148,163,184,' + (dim ? 0.03 : 0.12) + ')';
-        ctx.lineWidth = e.cross ? 1.4 : 0.8;
-        if (e.cross) ctx.setLineDash([5, 5]); else ctx.setLineDash([]);
+        if (e.dep) {
+          const litEdge = e.a.lit && e.b.lit;
+          ctx.strokeStyle = litEdge ? 'rgba(96,165,250,' + (dim ? 0.08 : 0.55) + ')' :
+            'rgba(96,165,250,' + (dim ? 0.04 : 0.22) + ')';
+          ctx.lineWidth = litEdge ? 1.6 : 1;
+          ctx.setLineDash([2, 4]);
+        } else {
+          ctx.strokeStyle = e.cross ? 'rgba(245,158,11,' + (dim ? 0.06 : 0.45) + ')' :
+            'rgba(148,163,184,' + (dim ? 0.03 : 0.12) + ')';
+          ctx.lineWidth = e.cross ? 1.4 : 0.8;
+          ctx.setLineDash(e.cross ? [5, 5] : []);
+        }
         ctx.beginPath(); ctx.moveTo(pa[0], pa[1]); ctx.lineTo(pb[0], pb[1]); ctx.stroke();
       });
       ctx.setLineDash([]);
@@ -479,15 +547,31 @@
           ctx.lineWidth = 1;
           ctx.beginPath(); ctx.moveTo(base[0], base[1]); ctx.lineTo(p[0], p[1]); ctx.stroke();
         }
-        const glow = n.lit || n === hover;
+        const glow = n.lit || n === hover || n.gate === 'avail';
         if (glow) { ctx.shadowColor = n.lit ? '#f59e0b' : n.color; ctx.shadowBlur = 12; }
         ctx.beginPath(); ctx.arc(p[0], p[1], rr, 0, Math.PI * 2);
-        ctx.fillStyle = n.lit ? '#f59e0b' : (n.type === 'root' ? n.color : n.type === 'hub' ? n.color : (n.subject === 'explore' ? 'rgba(251,191,36,.85)' : 'rgba(226,232,240,.92)'));
+        // 三态：lit(掌握度调亮度) / avail(白亮+学科色描边) / locked(暗灰)
+        let fill;
+        if (n.lit) {
+          const ma = (typeof n.mastery === 'number') ? n.mastery : 1;
+          const al = 0.3 + 0.7 * ma;
+          fill = 'rgba(245,158,11,' + al.toFixed(2) + ')';
+        } else if (n.gate === 'locked') {
+          fill = 'rgba(71,85,105,.55)';
+        } else {
+          fill = n.type === 'root' || n.type === 'hub' ? n.color :
+            (n.subject === 'explore' ? 'rgba(251,191,36,.85)' : 'rgba(226,232,240,.92)');
+        }
+        ctx.fillStyle = fill;
         ctx.fill();
         ctx.shadowBlur = 0;
-        if (n.type === 'topic' && !n.lit && n.kind === 'kb') { ctx.strokeStyle = n.color; ctx.lineWidth = 1; ctx.stroke(); }
+        if (n.type === 'topic' && !n.lit && n.kind === 'kb') {
+          ctx.strokeStyle = n.gate === 'locked' ? 'rgba(100,116,139,.6)' : n.color;
+          ctx.lineWidth = n.gate === 'avail' ? 1.8 : 1;
+          ctx.stroke();
+        }
         // 文字固定屏幕字号（不随缩放变小）；放大时显示更多知识点标签
-        const showLabel = n.type !== 'topic' || n.lit || (hi && hi.has(n)) || n.deg >= 5 || zoom > 0.9;
+        const showLabel = n.type !== 'topic' || n.lit || n.gate === 'avail' || (hi && hi.has(n)) || n.deg >= 5 || zoom > 0.9;
         if (showLabel) {
           ctx.fillStyle = n.type === 'topic' ? '#cbd5e1' : '#fff';
           ctx.font = (n.type === 'root' ? 'bold 14px' : '11px') + ' sans-serif';

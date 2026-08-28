@@ -190,3 +190,14 @@ html[data-skin="fire"] .g-node.lit { border-color: #ea580c; }
   100% { box-shadow: 0 0 0 14px rgba(245,158,11,0); transform: scale(1); }
 }
 .pt-pulse { animation: ptPulse .6s ease-out; z-index: 5; position: relative; }
+
+/* ===== 移动端补丁（E5）===== */
+@media (max-width: 640px) {
+  .hero h1 { font-size: 22px; }
+  .site-header nav a { padding: 5px 8px; font-size: 13px; margin-left: 2px; }
+  .app-main { padding: 14px 10px 40px; }
+  .viz-card { padding: 14px; }
+  .graph-page .graph-legend { font-size: 12px; }
+  .module-head h1 { font-size: 19px; }
+  canvas { max-width: 100%; }
+}

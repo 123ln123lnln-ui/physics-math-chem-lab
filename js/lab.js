@@ -55,6 +55,66 @@
       (item.type === 'concept' ? ' · 概念讲解' : ' · 公式实验') + '</div>';
     root.appendChild(head);
 
+    // 星图 2.0：前置门槛软提示（不阻止学习，只指路）
+    if (window.Progress && window.Deps) {
+      const g = Progress.checkGate(item.id);
+      if (!g.ok && !Progress.isLit('kb-' + item.id)) {
+        const gate = document.createElement('div');
+        gate.className = 'viz-card';
+        gate.style.cssText = 'background:#fef3c7;border:1px solid #f59e0b;margin-bottom:10px;font-size:13.5px;color:#92400e';
+        let gh = '🔒 这个知识建议先有基础：';
+        g.missing.forEach(function (pid) {
+          const pit = Reg.byId[pid];
+          if (pit) gh += ' <a href="#/kb/' + pit.id + '" style="color:#b45309">' + pit.title + '</a>';
+        });
+        gh += '（可直接学，但卡住了就回头补它们）';
+        gate.innerHTML = gh;
+        root.appendChild(gate);
+      }
+    }
+
+    // 四幕剧：第一幕·历史现场 + 第二幕·先猜后验
+    const story = window.Stories && Stories[item.id];
+    if (story && story.story) {
+      const sc = document.createElement('div');
+      sc.className = 'viz-card';
+      sc.style.cssText = 'border-left:4px solid #f59e0b';
+      sc.innerHTML = '<h3>📖 历史现场</h3><p style="font-size:14px;line-height:1.8;margin:0">' + story.story + '</p>';
+      root.appendChild(sc);
+    }
+    if (story && story.predict) {
+      const pc = document.createElement('div');
+      pc.className = 'viz-card';
+      pc.style.cssText = 'border-left:4px solid #2563eb';
+      pc.innerHTML = '<h3>🤔 先猜后验（猜错比看答案记得更牢）</h3>';
+      const pq = document.createElement('p');
+      pq.style.cssText = 'font-size:14.5px';
+      pq.textContent = story.predict.q;
+      pc.appendChild(pq);
+      const row = document.createElement('div');
+      story.predict.opts.forEach(function (opt, i) {
+        const b = document.createElement('button');
+        b.className = 'btn secondary';
+        b.style.cssText = 'margin:4px 8px 4px 0';
+        b.textContent = opt;
+        b.addEventListener('click', function () {
+          const done = pc.getAttribute('data-done');
+          if (done) return;
+          pc.setAttribute('data-done', '1');
+          const right = (i === story.predict.a);
+          row.style.opacity = '0.6';
+          const fb = document.createElement('div');
+          fb.style.cssText = 'margin-top:8px;font-size:13.5px;padding:8px 10px;border-radius:8px;background:' + (right ? '#ecfdf5' : '#fef2f2') + ';color:' + (right ? '#065f46' : '#991b1b');
+          fb.textContent = (right ? '✓ 猜对了！' : '✗ 猜错了——这种错误印象最深。') + ' ' + story.predict.e;
+          pc.appendChild(fb);
+          if (window.Progress) Progress.addPoints(2, '先猜后验');
+        });
+        row.appendChild(b);
+      });
+      pc.appendChild(row);
+      root.appendChild(pc);
+    }
+
     // 学科动画理念（讲清原理优先，不强加实验）
     const idea = document.createElement('div');
     idea.className = 'note';
@@ -234,6 +294,33 @@
         try { ConceptAnim.render(animWrap, ConceptMap.get(item)); } catch (e) { UI.showError(animWrap, e); }
       }
       update();
+    }
+
+    // 四幕剧：第四幕·位置回望（它在宇宙里的位置）
+    if (story && story.after) {
+      const ac = document.createElement('div');
+      ac.className = 'viz-card';
+      ac.style.cssText = 'border-left:4px solid #059669';
+      ac.innerHTML = '<h3>🌌 它在体系中的位置</h3><p style="font-size:14px;line-height:1.8;margin:0">' + story.after + '</p>';
+      root.appendChild(ac);
+    }
+
+    // 机制四：相关探索（这个知识能解释的神奇现象）
+    const xlinks = window.KbExploreLinks && KbExploreLinks[item.id];
+    if (xlinks && xlinks.length) {
+      const xc = document.createElement('div');
+      xc.className = 'viz-card';
+      xc.style.cssText = 'border-left:4px solid #8b5cf6';
+      let xh = '<h3>🔭 它能解释的真实现象</h3><div>';
+      xlinks.forEach(function (t) {
+        xh += '<a href="#/explore" data-xq="' + t + '" style="display:inline-block;margin:3px 8px 3px 0;padding:3px 12px;background:#f5f3ff;border:1px solid #c4b5fd;border-radius:12px;font-size:12.5px;color:#5b21b6;text-decoration:none">' + t + '</a>';
+      });
+      xh += '</div>';
+      xc.innerHTML = xh;
+      xc.querySelectorAll('[data-xq]').forEach(function (a) {
+        a.addEventListener('click', function () { window._exploreQuery = a.getAttribute('data-xq'); });
+      });
+      root.appendChild(xc);
     }
 
     // 检测题（答对点亮 + 积分；直接用 'kb-<id>' 作为点亮键，图谱联动）

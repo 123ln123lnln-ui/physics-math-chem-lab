@@ -29,14 +29,41 @@
       P.refreshUI();
     },
     light: function (moduleId) {
-      if (P.state.lit[moduleId]) return false;
-      P.state.lit[moduleId] = true;
+      const first = !P.state.lit[moduleId];
+      P.state.lit[moduleId] = Date.now();
+      if (!first) return false;
       P.save();
       UI.toast('点亮知识点！');
       P.addPoints(10, '点亮');
       return true;
     },
     isLit: function (id) { return !!P.state.lit[id]; },
+    /* 点亮时间戳（旧数据是 true，视为早已点亮 → 走衰减下限） */
+    litAt: function (id) { const v = P.state.lit[id]; return typeof v === 'number' ? v : (v ? 1 : 0); },
+    /* 掌握度 0~1：1 天内满分，3 天内 0.6，7 天内  0.3，再久视为遗忘（节点变暗待复习） */
+    mastery: function (id) {
+      const t = P.litAt(id);
+      if (!t) return 0;
+      const days = (Date.now() - t) / 86400000;
+      if (days < 1) return 1;
+      if (days <  3) return 0.6;
+      if (days <  7) return 0.3;
+      return 0;
+    },
+    /* 复习答对 → 掌握度回满 */
+    relight: function (id) { P.state.lit[id] = Date.now(); P.save(); },
+    /* 前置依赖：全部已点亮才可学（软门槛）。返回 {ok, missing:[id...]} */
+    checkGate: function (id) {
+      const deps = (window.Deps && Deps[id]) || [];
+      const missing = deps.filter(d => !P.isLit(d));
+      return { ok: missing.length === 0, missing: missing };
+    },
+    /* 今日回顾：已点亮但掌握度衰减的条目 */
+    reviewList: function () {
+      const out = [];
+      for (const id in P.state.lit) { if (P.mastery(id) < 1) out.push(id); }
+      return out;
+    },
     litCount: function () { return Object.keys(P.state.lit).length; },
     markVisit: function (id) {
       if (P.state.visited[id]) return;

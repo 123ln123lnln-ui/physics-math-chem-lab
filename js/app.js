@@ -32,6 +32,55 @@
     hero.appendChild(badges);
     root.appendChild(hero);
 
+    // 今日回顾：掌握度衰减的知识点（遗忘曲线回路）
+    if (window.Progress && window.Reg && Reg.count() > 0) {
+      const review = Progress.reviewList();
+      if (review.length) {
+        const box = document.createElement('div');
+        box.className = 'viz-card';
+        box.style.cssText = 'margin-top:12px;padding:12px 16px;background:#eff6ff;border:1px solid #93c5fd';
+        let html = '<div style="font-size:14px;color:#1e40af"><b>🕐 今日回顾</b>：有 ' + review.length + ' 个知识点在变暗，答对一题即可点亮：</div><div style="margin-top:6px">';
+        review.slice(0, 6).forEach(function (id) {
+          const it = id.indexOf('kb-') === 0 && Reg.byId ? Reg.byId[id.slice(3)] : null;
+          if (it) html += '<a href="#/kb/' + it.id + '" style="display:inline-block;margin:2px 6px 2px 0;padding:2px 10px;background:#fff;border:1px solid #93c5fd;border-radius:12px;font-size:12px;color:#1e40af;text-decoration:none">' + it.title + '</a>';
+        });
+        html += '</div>';
+        box.innerHTML = html;
+        root.appendChild(box);
+      }
+    }
+
+    // 机制五：五步快测（诊断入口——会的不重学，错的指路）
+    if (window.Quiz && window.Reg && Reg.count() > 0) {
+      const dq = document.createElement('div');
+      dq.className = 'viz-card';
+      dq.style.cssText = 'margin-top:12px;border-left:4px solid #2563eb';
+      dq.innerHTML = '<h3 style="margin-top:0">🎯 五步快测</h3><p style="font-size:13px;color:#475569;margin:4px 0 10px">随机 5 道题摸摸底：答对直接点亮对应知识点，答错会告诉你该补哪一课。</p>';
+      const startBtn = document.createElement('button');
+      startBtn.className = 'btn';
+      startBtn.textContent = '开始快测';
+      const holder = document.createElement('div');
+      dq.appendChild(startBtn);
+      dq.appendChild(holder);
+      root.appendChild(dq);
+      startBtn.addEventListener('click', function () {
+        startBtn.style.display = 'none';
+        const pool = [];
+        for (const id in Reg.items) {
+          const it = Reg.items[id];
+          if (it.def && it.def.quiz) pool.push(it);
+        }
+        // 抽 5 个（优先未点亮的）
+        const unlit = pool.filter(it => !(window.Progress && Progress.isLit('kb-' + it.id)));
+        const src = unlit.length >= 5 ? unlit : pool;
+        const picked = src.slice().sort(function () { return Math.random() - 0.5; }).slice(0, 5);
+        Quiz.add('__diag__', picked.map(function (it) {
+          return { q: '【' + it.title + '】' + it.def.quiz.q, options: it.def.quiz.opts, answer: it.def.quiz.a, explain: it.def.quiz.e };
+        }));
+        Quiz.render(holder, '__diag__');
+      });
+    }
+
     const grid = document.createElement('div');
     grid.className = 'subject-grid';
     // 图谱进度横幅

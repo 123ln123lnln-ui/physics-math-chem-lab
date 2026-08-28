@@ -190,6 +190,7 @@
       loadBtn.style.display = shown < list.length ? 'block' : 'none';
       loadBtn.textContent = '加载更多（还有 ' + (list.length - shown) + ' 个）';
     }
+    if (window._exploreQuery) { input.value = window._exploreQuery; window._exploreQuery = null; }
     input.addEventListener('input', function () { renderBatch(true); });
     sel.addEventListener('change', function () { renderBatch(true); });
     loadBtn.addEventListener('click', function () { renderBatch(false); });
@@ -214,6 +215,19 @@
       body.style.cssText = 'font-size:13px;line-height:1.7;color:#475569;margin-top:6px';
       body.textContent = tp.body || '';
       card.appendChild(body);
+      // 机制四：回到课内主线
+      const kbRefs = window.ExploreKbLinks && ExploreKbLinks[tp.title];
+      if (kbRefs && kbRefs.length && window.Reg) {
+        const kr = document.createElement('div');
+        kr.style.cssText = 'margin-top:8px';
+        let kh = '<span style="font-size:12px;color:#64748b">课内主线：</span>';
+        kbRefs.forEach(function (id) {
+          const it = Reg.byId[id];
+          if (it) kh += '<a href="#/kb/' + id + '" style="display:inline-block;margin:2px 6px 2px 0;padding:2px 10px;background:#eff6ff;border:1px solid #93c5fd;border-radius:12px;font-size:12px;color:#1e40af;text-decoration:none">' + it.title + '</a>';
+        });
+        kr.innerHTML = kh;
+        card.appendChild(kr);
+      }
       const animKey = tp.anim || E.ANIM_MAP[tp.title];
       if (animKey) {
         const dv = document.createElement('div');
