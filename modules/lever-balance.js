@@ -85,13 +85,9 @@
         } catch (e) { readoutDiv.innerHTML = ''; UI.showError(readoutDiv, e); }
       }
 
-      UI.slider(panel, '动力 F₁ (N)', 5, 100, 1, F1, function (v) {
-        Voice.param('力', v > F1 ? 'up' : 'down'); F1 = v; draw();
-      });
-      UI.slider(panel, '动力臂 L₁ (m)', 0.2, 3, 0.1, L1, function (v) {
-        Voice.param('力臂', v > L1 ? 'up' : 'down'); L1 = v; draw();
-      });
-      UI.slider(panel, '阻力臂 L₂ (m)', 0.2, 3, 0.1, L2, function (v) { L2 = v; draw(); });
+      UI.slider(panel, '动力 F₁ (N)', 5, 100, 1, F1, function (v) { F1 = v; draw(); }, { unit: 'N' });
+      UI.slider(panel, '动力臂 L₁ (m)', 0.2, 3, 0.1, L1, function (v) { L1 = v; draw(); }, { unit: 'm' });
+      UI.slider(panel, '阻力臂 L₂ (m)', 0.2, 3, 0.1, L2, function (v) { L2 = v; draw(); }, { unit: 'm' });
       const hint = document.createElement('div'); hint.className = 'note';
       hint.textContent = '玩一玩：把动力臂拉到最大、阻力臂拉到最小，看看多大的重物都能被小力气撬动！';
       panel.appendChild(hint);

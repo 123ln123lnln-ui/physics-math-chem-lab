@@ -105,12 +105,8 @@
         } catch (e) { UI.showError(readoutDiv, e); }
       }
 
-      UI.slider(panel, '初始高度 h₀ (m)', 1, 20, 0.1, h0, function (v) {
-        Voice.param('高度', v > h0 ? 'up' : 'down'); h0 = v; reset();
-      });
-      UI.slider(panel, '初速度 v₀ (m/s，0=自由落体)', 0, 30, 1, v0, function (v) {
-        Voice.param('初速度', v > v0 ? 'up' : 'down'); v0 = v; reset();
-      });
+      UI.slider(panel, '初始高度 h₀ (m)', 1, 20, 0.1, h0, function (v) { h0 = v; reset(); }, { unit: 'm' });
+      UI.slider(panel, '初速度 v₀ (m/s，0=自由落体)', 0, 30, 1, v0, function (v) { v0 = v; reset(); }, { unit: 'm/s' });
 
       const st = { playing: false, loop: false };
       const ctrl = UI.animControls(panel, st);

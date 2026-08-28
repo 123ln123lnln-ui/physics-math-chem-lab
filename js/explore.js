@@ -63,40 +63,61 @@
     const h1 = document.createElement('h1');
     h1.textContent = '资料篇 · 自由探索';
     root.appendChild(h1);
+
+    const data = window.ExploreData || E.topics;
+    const nAnim = data.filter(d => d.anim).length;
     const sub = document.createElement('div');
     sub.className = 'graph-legend';
-    sub.textContent = '这里的内容超出课标，是通往更高深世界的窗口。标注"探索级"，仅作兴趣拓展，不作为考点。每个主题都给出"再深入一步"的方向。';
+    sub.textContent = '共 ' + data.length + ' 个探索主题（其中 ' + nAnim + ' 个带实时交互/动画）。内容超出课标、面向兴趣与高阶思维，标注"探索级"，不作为考点。';
     root.appendChild(sub);
 
     const grid = document.createElement('div');
     grid.className = 'subject-grid';
 
-    E.topics.forEach(function (tp) {
+    data.forEach(function (tp) {
       const card = document.createElement('div');
       card.className = 'subject-card';
       const h2 = document.createElement('h2');
-      h2.style.fontSize = '17px';
+      h2.style.fontSize = '16px';
       h2.textContent = tp.title;
       card.appendChild(h2);
       const lv = document.createElement('p');
       lv.className = 'desc';
       lv.style.color = '#b45309';
-      lv.textContent = tp.level;
+      lv.textContent = '探索级 · ' + (tp.cat || '');
       card.appendChild(lv);
       const teaser = document.createElement('p');
-      teaser.style.cssText = 'font-weight:600;margin:6px 0;font-size:14px';
+      teaser.style.cssText = 'font-weight:600;margin:6px 0;font-size:13.5px';
       teaser.textContent = tp.teaser;
       card.appendChild(teaser);
       const body = document.createElement('p');
-      body.style.cssText = 'font-size:13.5px;color:#334155;line-height:1.7';
+      body.style.cssText = 'font-size:13px;color:#334155;line-height:1.7';
       body.textContent = tp.body;
       card.appendChild(body);
 
-      if (tp.demo) {
+      // 动画引擎挂载
+      if (tp.anim) {
         const dv = document.createElement('div');
         dv.style.marginTop = '10px';
-        E.renderDemo(dv, tp.demo);
         card.appendChild(dv);
+        // 延迟挂载，避免 50 个卡片同时跑重计算
+        let started = false;
+        const start = function () {
+          if (started) return;
+          started = true;
+          try {
+            if (window.ExploreAnim && ExploreAnim[tp.anim]) ExploreAnim[tp.anim](dv);
+            else { dv.innerHTML = '<div class="note">动画引擎建设中。</div>'; }
+          } catch (e) { UI.showError(dv, e); }
+        };
+        // 立即渲染前 12 个，其余进入视口时渲染
+        if (data.indexOf(tp) < 12) start();
+        else {
+          const io = new IntersectionObserver(function (ents) {
+            ents.forEach(function (en) { if (en.isIntersecting) { start(); io.disconnect(); } });
+          }, { rootMargin: '300px' });
+          io.observe(dv);
+        }
       }
       if (tp.link) {
         const a = document.createElement('a');

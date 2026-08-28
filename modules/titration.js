@@ -98,9 +98,7 @@
         } catch (e) { UI.showError(readoutDiv, e); }
       }
 
-      UI.slider(panel, '加入 NaOH 体积 (mL)', 0, Vmax, 0.1, Vb, function (v) {
-        Voice.param('浓度', v > Vb ? 'up' : 'down'); Vb = v; draw(); updateReadout();
-      });
+      UI.slider(panel, '加入 NaOH 体积 (mL)', 0, Vmax, 0.1, Vb, function (v) { Vb = v; draw(); updateReadout(); }, { unit: 'mL' });
       const hint = document.createElement('div'); hint.className = 'note';
       hint.textContent = '注意等当点（20 mL）附近的 pH 突变：从约 19 mL 到 21 mL，pH 从约 2.9 跃升到约 11。这就是指示剂变色的依据。';
       panel.appendChild(hint);

@@ -116,10 +116,8 @@
         } catch (e) { UI.showError(readoutDiv, e); }
       }
 
-      UI.slider(panel, '质量 m (kg)', 0.2, 5, 0.1, m, function (v) {
-        Voice.param('质量', v > m ? 'up' : 'down'); m = v;
-      });
-      UI.slider(panel, '劲度系数 k (N/m)', 5, 200, 1, Math.round(k), function (v) { k = v; });
+      UI.slider(panel, '质量 m (kg)', 0.2, 5, 0.1, m, function (v) { m = v; }, { unit: 'kg' });
+      UI.slider(panel, '劲度系数 k (N/m)', 5, 200, 1, Math.round(k), function (v) { k = v; }, { unit: 'N/m' });
       const st = { playing: true, loop: true };
       UI.animControls(panel, st);
 

@@ -167,6 +167,15 @@ html[data-skin="fire"] .g-node.lit { border-color: #ea580c; }
 /* 拖尾特效（解锁后给动画小球） */
 .fx-trail .ball { filter: drop-shadow(0 0 6px rgba(220,38,38,.7)); }
 
+/* 知识实验室目录 */
+.kb-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(210px, 1fr)); gap: 8px; margin-bottom: 14px; }
+.kb-chip { display: flex; flex-direction: column; padding: 9px 12px; border: 1px solid #e2e8f0; border-radius: 9px; background: #fff; text-decoration: none; color: var(--c-text); font-size: 13px; font-weight: 600; transition: all .15s; position: relative; }
+.kb-chip:hover { border-color: var(--c-primary); transform: translateY(-1px); box-shadow: var(--shadow); }
+.kb-chip.lit { border-color: #f59e0b; background: #fffbeb; color: #92400e; }
+.kb-chip.concept { background: #f8fafc; }
+.kb-chip .kb-branch { font-size: 11px; color: var(--c-muted); font-weight: 400; margin-top: 2px; }
+.kb-chip .kb-type { position: absolute; top: 6px; right: 8px; font-size: 10px; color: #94a3b8; border: 1px solid #e2e8f0; border-radius: 4px; padding: 0 4px; }
+
 /* 元素点击点亮特效 */
 @keyframes ptPulse {
   0% { box-shadow: 0 0 0 0 rgba(245,158,11,.8); transform: scale(1.15); }

@@ -41,12 +41,18 @@
       }
       ctx.stroke();
 
-      // 小球
+      // 小球（颜色随已解锁皮肤变化）
       const cp = SCI.physx.projectilePoint(v0, theta, t);
       const [bx, by] = toPx(cp.x, Math.max(0, cp.y));
-      ctx.fillStyle = '#dc2626';
+      if (window.FX) {
+        trail.push([bx, by]);
+        while (trail.length > 24) trail.shift();
+        FX.trail(ctx, trail);
+      }
+      ctx.fillStyle = window.FX ? FX.ballColor() : '#dc2626';
       ctx.beginPath(); ctx.arc(bx, by, 8, 0, Math.PI * 2); ctx.fill();
     }
+    const trail = [];
 
     function frame(ts) {
       if (st.playing) {
@@ -82,14 +88,8 @@
 
     function reset() { t = 0; st.playing = false; ctrl.setPlaying(false); lastTs = null; draw(); updateReadout(); }
 
-    UI.slider(controls, '初速度 v₀ (m/s)', 5, 30, 0.5, v0, function (v) {
-      if (window.Voice) Voice.param('初速度', v > v0 ? 'up' : 'down');
-      v0 = v; reset();
-    });
-    UI.slider(controls, '发射角 θ (°)', 10, 80, 1, theta, function (v) {
-      if (window.Voice) Voice.param('角度', v > theta ? 'up' : 'down');
-      theta = v; reset();
-    });
+    UI.slider(controls, '初速度 v₀ (m/s)', 5, 30, 0.5, v0, function (v) { v0 = v; reset(); }, { unit: 'm/s' });
+    UI.slider(controls, '发射角 θ (°)', 10, 80, 1, theta, function (v) { theta = v; reset(); }, { unit: '°' });
     const tip = document.createElement('span');
     tip.style.cssText = 'font-size:12.5px;color:#64748b';
     tip.textContent = '试试：固定初速度，角度调到 45° 射程最大';

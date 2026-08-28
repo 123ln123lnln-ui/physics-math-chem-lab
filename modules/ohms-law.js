@@ -95,12 +95,8 @@
         } catch (e) { readoutDiv.innerHTML = ''; UI.showError(readoutDiv, e); }
       }
 
-      UI.slider(panel, '电压 U (V)', 0, 12, 0.5, U, function (v) {
-        Voice.param('电压', v > U ? 'up' : 'down'); U = v; draw();
-      });
-      UI.slider(panel, '电阻 R (Ω)', 1, 20, 0.5, R, function (v) {
-        Voice.param('电阻', v > R ? 'up' : 'down'); R = v; draw();
-      });
+      UI.slider(panel, '电压 U (V)', 0, 12, 0.5, U, function (v) { U = v; draw(); }, { unit: 'V' });
+      UI.slider(panel, '电阻 R (Ω)', 1, 20, 0.5, R, function (v) { R = v; draw(); }, { unit: 'Ω' });
       const dirBtn = document.createElement('button');
       dirBtn.className = 'btn secondary';
       dirBtn.textContent = '反转电流方向';

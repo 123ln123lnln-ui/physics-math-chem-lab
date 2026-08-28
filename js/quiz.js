@@ -49,7 +49,11 @@
         box.appendChild(done);
         return;
       }
-      const q = qs[order[pos]];
+      const q0 = qs[order[pos]];
+      // 选项乱序（正确答案位置不固定在 A）
+      const idxs = q0.options.map(function (_, i) { return i; });
+      const shuffled = shuffle(idxs);
+      const q = { q: q0.q, options: shuffled.map(i => q0.options[i]), answer: shuffled.indexOf(q0.answer), explain: q0.explain };
       const p = document.createElement('p');
       p.className = 'quiz-q';
       p.textContent = (pos + 1) + '/' + order.length + ' ' + q.q;

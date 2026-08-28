@@ -88,6 +88,13 @@
   ];
 
   T.countLit = function () {
+    // 优先用注册表统计（200+ 知识点）；退回旧树
+    if (window.Reg && Reg.count() > 0) {
+      let lit = 0;
+      const total = Reg.count();
+      for (const id in Reg.items) if (window.Progress && Progress.isLit('kb-' + id)) lit++;
+      return { lit: lit, total: total, built: total };
+    }
     let lit = 0, total = 0, built = 0;
     T.trees.forEach(tree => tree.branches.forEach(b => b.nodes.forEach(n => {
       total++;
@@ -96,68 +103,294 @@
     return { lit: lit, total: total, built: built };
   };
 
+  /* ===== Obsidian 风格力导向图谱（canvas 物理模拟） ===== */
   T.render = function (root) {
     root.className = 'graph-page';
     const h1 = document.createElement('h1');
-    h1.textContent = '知识图谱 · 三棵成长之树';
+    h1.textContent = '知识图谱 · 动态星图';
     root.appendChild(h1);
 
     const stat = T.countLit();
     const legend = document.createElement('div');
     legend.className = 'graph-legend';
-    legend.textContent = '★ 金色 = 已点亮（学完）；灰色 = 待探索。当前进度：已点亮 ' + stat.lit + ' / 已建互动件 ' + stat.built + ' 个（图谱共 ' + stat.total + ' 个知识点）。点击带 ★ 或加粗的节点进入学习。';
+    legend.textContent = '拖拽节点 · 滚轮缩放 · 空白处拖动平移 · 悬停看关联 · 点击金色节点进入学习。★金色=已点亮，进度：' +
+      stat.lit + ' / ' + stat.built + ' 个互动件点亮（图谱共 ' + stat.total + ' 个知识点）。';
     root.appendChild(legend);
 
-    const treeWrap = document.createElement('div');
-    treeWrap.className = 'graph-tree';
+    const holder = document.createElement('div');
+    holder.style.cssText = 'position:relative;background:#0f172a;border-radius:12px;overflow:hidden;height:620px';
+    root.appendChild(holder);
+    const canvas = document.createElement('canvas');
+    holder.appendChild(canvas);
+    const tip = document.createElement('div');
+    tip.style.cssText = 'position:absolute;pointer-events:none;background:#1e293b;color:#e2e8f0;border:1px solid #475569;border-radius:8px;padding:6px 10px;font-size:12px;display:none;z-index:5;max-width:260px';
+    holder.appendChild(tip);
 
-    T.trees.forEach(function (tree) {
-      const col = document.createElement('div');
-      col.className = 'g-col';
-      const h3 = document.createElement('h3');
-      h3.textContent = tree.title;
-      h3.style.color = tree.color;
-      col.appendChild(h3);
-      tree.branches.forEach(function (branch) {
-        const bh = document.createElement('div');
-        bh.className = 'g-branch-title';
-        bh.textContent = branch.name;
-        bh.style.cssText = 'font-size:12px;color:#64748b;margin-top:10px;font-weight:600';
-        col.appendChild(bh);
-        const bw = document.createElement('div');
-        bw.className = 'g-branch';
-        branch.nodes.forEach(function (node) {
-          const n = document.createElement('div');
-          n.className = 'g-node';
-          const lit = node.module && Progress.isLit(node.module);
-          if (lit) n.classList.add('lit');
-          n.textContent = node.name;
-          if (node.sub) {
-            const s = document.createElement('span');
-            s.className = 'g-sub';
-            s.textContent = node.sub;
-            n.appendChild(s);
+    const W = holder.clientWidth || 900, H = 620;
+    const dpr = window.devicePixelRatio || 1;
+    canvas.width = W * dpr; canvas.height = H * dpr;
+    canvas.style.width = '100%'; canvas.style.height = '100%';
+    const ctx = canvas.getContext('2d');
+    ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+
+    // ---- 构建节点与边 ----
+    const nodes = [], edges = [];
+    const clusterX = { math: W * 0.2, physics: W * 0.5, chemistry: W * 0.8 };
+    function addNode(n) {
+      n.x = clusterX[n.subject] + (Math.random() - 0.5) * 260;
+      n.y = H * 0.3 + Math.random() * H * 0.4;
+      n.vx = 0; n.vy = 0;
+      nodes.push(n);
+      return n;
+    }
+    const litKey = function (n) { return n.kind === 'kb' ? 'kb-' + n.kid : (n.module || null); };
+    const isLitNode = function (n) { const k = litKey(n); return !!(k && window.Progress && Progress.isLit(k)); };
+
+    if (window.Reg && Reg.count() > 0) {
+      // 数据驱动：注册表 → 学科主干 → 分支 → 知识点
+      const subjects = [['math', '数学之树', '#2563eb'], ['physics', '物理之树', '#dc2626'], ['chemistry', '化学之树', '#059669']];
+      subjects.forEach(function (s) {
+        const rootHub = addNode({ name: s[1], type: 'root', subject: s[0], r: 15, color: s[2], kind: 'none' });
+        const hubs = {};
+        Reg.list(s[0]).forEach(function (it) {
+          if (!hubs[it.branch]) {
+            hubs[it.branch] = addNode({ name: it.branch, type: 'hub', subject: s[0], r: 8, color: s[2], kind: 'none' });
+            edges.push({ a: rootHub, b: hubs[it.branch], len: 110, k: 0.03, cross: false });
           }
-          if (node.module) {
-            n.classList.add('has-link');
-            n.title = '点击进入互动学习' + (lit ? '（已点亮）' : '（学完答题可点亮）');
-            n.addEventListener('click', function () {
-              window.location.hash = '#/m/' + node.module;
-            });
-          } else {
-            n.title = '该知识点互动件建设中';
-          }
-          bw.appendChild(n);
+          const nd = addNode({ name: it.title, type: 'topic', subject: s[0], r: 4.5, color: s[2], kind: 'kb', kid: it.id, lit: false });
+          edges.push({ a: hubs[it.branch], b: nd, len: 42, k: 0.05, cross: false });
         });
-        col.appendChild(bw);
       });
-      treeWrap.appendChild(col);
-    });
-    root.appendChild(treeWrap);
+      nodes.forEach(function (n) { n.lit = isLitNode(n); if (n.lit && n.type === 'topic') n.r = 6.5; });
+      // 语义跨学科连线：分支名相似就近连接（示例性的学科交叉）
+      const crossPairs = [
+        ['导数与单调性应用', '匀变速直线运动公式', '导数正是瞬时速度——变化的数学'],
+        ['平面向量运算', '力的合成（平行四边形定则）', '向量加法就是平行四边形定则'],
+        ['二次函数最值问题', '抛体运动', '抛体轨迹是抛物线'],
+        ['锐角三角函数', '力学', '斜面受力分解用三角函数'],
+        ['物质的量与摩尔', '概率统计', '微观统计通向宏观摩尔'],
+        ['反应热与热化学方程式', '动能与势能转化', '能量守恒贯穿理化'],
+        ['原电池与电解池', '欧姆定律', '电化学是电路在化学中的应用']
+      ];
+      const byTitle = {};
+      nodes.forEach(function (n) { if (n.type === 'topic') byTitle[n.name] = n; });
+      crossPairs.forEach(function (cp) {
+        const a = byTitle[cp[0]], b = byTitle[cp[1]];
+        if (a && b) edges.push({ a: a, b: b, len: 190, k: 0.004, cross: true, text: cp[2] });
+      });
+    } else {
+      T.trees.forEach(function (tree) {
+        const rootHub = addNode({ name: tree.title, type: 'root', subject: tree.subject, r: 15, color: tree.color, kind: 'none' });
+        tree.branches.forEach(function (branch) {
+          const hub = addNode({ name: branch.name, type: 'hub', subject: tree.subject, r: 9, color: tree.color, kind: 'none' });
+          edges.push({ a: rootHub, b: hub, len: 120, k: 0.03, cross: false });
+          branch.nodes.forEach(function (kn) {
+            const nd = addNode({ name: kn.name, type: 'topic', subject: tree.subject, r: 5, color: tree.color, kind: 'module', module: kn.module || null, lit: false });
+            edges.push({ a: hub, b: nd, len: 55, k: 0.05, cross: false });
+          });
+        });
+      });
+      nodes.forEach(function (n) { n.lit = isLitNode(n); });
+    }
 
+    // ---- 物理模拟 ----
+    let alpha = 1;
+    function tick() {
+      // 斥力
+      for (let i = 0; i < nodes.length; i++) {
+        for (let j = i + 1; j < nodes.length; j++) {
+          const A = nodes[i], B = nodes[j];
+          let dx = B.x - A.x, dy = B.y - A.y;
+          let d2 = dx * dx + dy * dy;
+          if (d2 < 1) { d2 = 1; dx = Math.random() - 0.5; dy = Math.random() - 0.5; }
+          const d = Math.sqrt(d2);
+          const f = 2600 / d2;
+          const fx = dx / d * f, fy = dy / d * f;
+          if (!A.fixed) { A.vx -= fx; A.vy -= fy; }
+          if (!B.fixed) { B.vx += fx; B.vy += fy; }
+        }
+      }
+      // 弹簧
+      edges.forEach(function (e) {
+        const dx = e.b.x - e.a.x, dy = e.b.y - e.a.y;
+        const d = Math.sqrt(dx * dx + dy * dy) || 1;
+        const f = (d - e.len) * e.k;
+        const fx = dx / d * f, fy = dy / d * f;
+        if (!e.a.fixed) { e.a.vx += fx; e.a.vy += fy; }
+        if (!e.b.fixed) { e.b.vx -= fx; e.b.vy -= fy; }
+      });
+      // 向各自学科中心轻微聚拢 + 积分
+      nodes.forEach(function (n) {
+        if (n.fixed) return;
+        n.vx += (clusterX[n.subject] - n.x) * 0.0015;
+        n.vy += (H / 2 - n.y) * 0.001;
+        n.vx *= 0.86; n.vy *= 0.86;
+        n.x += n.vx * alpha; n.y += n.vy * alpha;
+        n.x = Math.max(20, Math.min(W - 20, n.x));
+        n.y = Math.max(20, Math.min(H - 20, n.y));
+      });
+      if (alpha > 0.3) alpha *= 0.995;
+    }
+
+    // ---- 视图变换（缩放/平移） ----
+    let scale = 1, panX = 0, panY = 0;
+    let hover = null, dragging = null, panning = false, moved = false;
+    let lastMouse = null;
+
+    function toWorld(mx, my) { return [(mx - panX) / scale, (my - panY) / scale]; }
+
+    function findNode(mx, my) {
+      const [wx, wy] = toWorld(mx, my);
+      let best = null, bd = 1e9;
+      nodes.forEach(function (n) {
+        const d = (n.x - wx) * (n.x - wx) + (n.y - wy) * (n.y - wy);
+        const rr = (n.r + 6) * (n.r + 6);
+        if (d < rr && d < bd) { bd = d; best = n; }
+      });
+      return best;
+    }
+
+    function neighbors(n) {
+      const set = new Set([n]);
+      edges.forEach(function (e) {
+        if (e.a === n) set.add(e.b);
+        if (e.b === n) set.add(e.a);
+      });
+      return set;
+    }
+
+    canvas.addEventListener('mousedown', function (ev) {
+      const rect = canvas.getBoundingClientRect();
+      const mx = (ev.clientX - rect.left) * W / rect.width;
+      const my = (ev.clientY - rect.top) * H / rect.height;
+      moved = false;
+      const n = findNode(mx, my);
+      if (n) { dragging = n; n.fixed = true; } else { panning = true; }
+      lastMouse = [mx, my];
+    });
+    window.addEventListener('mousemove', function (ev) {
+      const rect = canvas.getBoundingClientRect();
+      const mx = (ev.clientX - rect.left) * W / rect.width;
+      const my = (ev.clientY - rect.top) * H / rect.height;
+      if (dragging) {
+        const [wx, wy] = toWorld(mx, my);
+        dragging.x = wx; dragging.y = wy;
+        dragging.vx = 0; dragging.vy = 0;
+        moved = true;
+        alpha = Math.max(alpha, 0.6);
+      } else if (panning && lastMouse) {
+        panX += mx - lastMouse[0];
+        panY += my - lastMouse[1];
+        moved = true;
+      } else {
+        hover = findNode(mx, my);
+        if (hover) {
+          tip.style.display = 'block';
+          tip.style.left = Math.min(mx + 14, W - 240) + 'px';
+          tip.style.top = (my + 14) + 'px';
+          const clickable = hover.kind === 'kb' || hover.module;
+          const st = hover.type === 'root' ? '学科主干' : hover.type === 'hub' ? '知识分支' :
+            clickable ? (hover.lit ? '★ 已点亮 · 点击复习' : '点击进入知识实验室') : '建设中';
+          tip.innerHTML = '<b>' + hover.name + '</b><br><span style="color:#94a3b8">' + st + '</span>';
+        } else {
+          tip.style.display = 'none';
+        }
+      }
+      lastMouse = [mx, my];
+    });
+    window.addEventListener('mouseup', function (ev) {
+      const rect = canvas.getBoundingClientRect();
+      const mx = (ev.clientX - rect.left) * W / rect.width;
+      const my = (ev.clientY - rect.top) * H / rect.height;
+      if (dragging) {
+        dragging.fixed = false;
+        if (!moved) {
+          if (dragging.kind === 'kb') window.location.hash = '#/kb/' + dragging.kid;
+          else if (dragging.module) window.location.hash = '#/m/' + dragging.module;
+        }
+        dragging = null;
+      }
+      panning = false;
+    });
+    canvas.addEventListener('wheel', function (ev) {
+      ev.preventDefault();
+      const rect = canvas.getBoundingClientRect();
+      const mx = (ev.clientX - rect.left) * W / rect.width;
+      const my = (ev.clientY - rect.top) * H / rect.height;
+      const [wx, wy] = toWorld(mx, my);
+      const f = ev.deltaY < 0 ? 1.12 : 1 / 1.12;
+      scale = Math.max(0.4, Math.min(3, scale * f));
+      panX = mx - wx * scale;
+      panY = my - wy * scale;
+    }, { passive: false });
+
+    // ---- 绘制 ----
+    function draw() {
+      ctx.clearRect(0, 0, W, H);
+      ctx.save();
+      ctx.translate(panX, panY);
+      ctx.scale(scale, scale);
+
+      const hi = hover ? neighbors(hover) : null;
+
+      // 边
+      edges.forEach(function (e) {
+        const dim = hi && !(hi.has(e.a) && hi.has(e.b));
+        ctx.strokeStyle = e.cross ? 'rgba(245,158,11,' + (dim ? 0.08 : 0.55) + ')' :
+          'rgba(148,163,184,' + (dim ? 0.05 : (e.a.type === 'root' || e.b.type === 'root' ? 0.25 : 0.16)) + ')';
+        ctx.lineWidth = e.cross ? 1.6 : 1;
+        if (e.cross) ctx.setLineDash([6, 5]); else ctx.setLineDash([]);
+        ctx.beginPath();
+        ctx.moveTo(e.a.x, e.a.y);
+        ctx.lineTo(e.b.x, e.b.y);
+        ctx.stroke();
+      });
+      ctx.setLineDash([]);
+
+      // 节点
+      nodes.forEach(function (n) {
+        const dim = hi && !hi.has(n);
+        const glow = n.lit || n === hover;
+        if (glow) {
+          ctx.shadowColor = n.lit ? '#f59e0b' : n.color;
+          ctx.shadowBlur = 16;
+        }
+        ctx.globalAlpha = dim ? 0.15 : 1;
+        ctx.beginPath();
+        ctx.arc(n.x, n.y, n.r, 0, Math.PI * 2);
+        ctx.fillStyle = n.lit ? '#f59e0b' : (n.type === 'root' ? n.color : n.type === 'hub' ? n.color : 'rgba(226,232,240,.92)');
+        if (n.type === 'topic' && !n.lit) {
+          ctx.fillStyle = 'rgba(226,232,240,.9)';
+        }
+        ctx.fill();
+        ctx.shadowBlur = 0;
+        if (n.module && !n.lit) {
+          ctx.strokeStyle = n.color; ctx.lineWidth = 1.4;
+          ctx.stroke();
+        }
+        // 标签：主干/分支/点亮/悬停邻域 显示
+        const showLabel = n.type !== 'topic' || n.lit || (hi && hi.has(n)) || scale > 1.5;
+        if (showLabel) {
+          ctx.fillStyle = n.type === 'topic' ? '#cbd5e1' : '#fff';
+          ctx.font = (n.type === 'root' ? 'bold 14px' : n.type === 'hub' ? 'bold 11px' : '10px') + ' sans-serif';
+          ctx.textAlign = 'center';
+          ctx.fillText(n.name, n.x, n.y - n.r - 5);
+        }
+        ctx.globalAlpha = 1;
+      });
+      ctx.restore();
+    }
+
+    (function loop() {
+      tick();
+      draw();
+      window.requestAnimationFrame(loop);
+    })();
+
+    // 交叉连线说明
     const cross = document.createElement('div');
     cross.className = 'g-cross';
-    cross.innerHTML = '<b>学科交叉连线</b>（知识在这里互相点亮）：';
+    cross.innerHTML = '<b>虚线 = 学科交叉连线</b>（悬停节点可看它的邻居）：';
     const ul = document.createElement('ul');
     ul.style.cssText = 'margin:8px 0 0;padding-left:18px';
     T.crossLinks.forEach(function (l) {

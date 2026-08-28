@@ -23,8 +23,9 @@
       P.state.points += n;
       P.save();
       UI.toast('+' + n + ' 积分' + (reason ? ' · ' + reason : ''));
+      if (window.FX) FX.burstAtBadge();
       const news = P.checkUnlocks();
-      news.forEach(u => UI.toast('解锁奖励：' + u.name + '！'));
+      news.forEach(u => { UI.toast('解锁奖励：' + u.name + '！'); if (window.FX) FX.burstAtBadge(); });
       P.refreshUI();
     },
     light: function (moduleId) {

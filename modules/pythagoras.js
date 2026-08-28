@@ -87,14 +87,8 @@
         } catch (e) { UI.showError(readoutDiv, e); }
       }
 
-      UI.slider(panel, '直角边 a', 1, 8, 1, a, function (v) {
-        Voice.param('大小', v > a ? 'up' : 'down');
-        a = v; draw();
-      });
-      UI.slider(panel, '直角边 b', 1, 8, 1, b, function (v) {
-        Voice.param('大小', v > b ? 'up' : 'down');
-        b = v; draw();
-      });
+      UI.slider(panel, '直角边 a', 1, 8, 1, a, function (v) { a = v; draw(); }, { unit: '' });
+      UI.slider(panel, '直角边 b', 1, 8, 1, b, function (v) { b = v; draw(); }, { unit: '' });
       const hint = document.createElement('div'); hint.className = 'note';
       hint.textContent = '数一数：红色格子数 + 绿色格子数 = 黄色格子数。这就是勾股定理的面积证明。';
       panel.appendChild(hint);

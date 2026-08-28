@@ -35,6 +35,31 @@
 
   V.girl = function (text) { speak(text, { pitch: 1.8, rate: 1.2, voice: V._girl }); };
   V.intro = function (text) { speak(text, { pitch: 0.75, rate: 0.95, voice: V._male }); };
+  V.stop = function () { if (window.speechSynthesis) speechSynthesis.cancel(); };
+
+  // 单位中文读法映射
+  const UNIT_CN = {
+    'm': '米', 'cm': '厘米', 'mm': '毫米', 's': '秒', 'kg': '千克', 'g': '克',
+    'N': '牛', 'V': '伏特', 'Ω': '欧姆', 'A': '安培', 'W': '瓦特', 'J': '焦耳',
+    'm/s': '米每秒', 'm/s²': '米每二次方秒', 'kg/m³': '千克每立方米',
+    'N/m': '牛每米', 'N·m': '牛米', '°': '度', '°/s': '度每秒',
+    'mL': '毫升', 'L': '升', 'mol': '摩尔', 'mol/L': '摩尔每升',
+    'Hz': '赫兹', 'min': '分钟', 'h': '小时', 'km': '千米', 'km/h': '千米每小时',
+    'J/(kg·°C)': '焦每千克摄氏度', 'Pa': '帕斯卡', 'kPa': '千帕', 'rad': '弧度'
+  };
+
+  // 参数数值播报：根据参数内容读出具体数值（替代旧的泛化话术）
+  V.value = function (name, value, unit) {
+    const now = Date.now();
+    if (now - V._last < 900) return;
+    V._last = now;
+    const cleanName = String(name).replace(/[（(].*$/, '').trim();
+    const unitTxt = UNIT_CN[unit] || unit || '';
+    let numTxt;
+    if (Number.isInteger(value)) numTxt = String(value);
+    else numTxt = String(Number(value.toFixed(2)));
+    V.girl(cleanName + '调到' + numTxt + unitTxt);
+  };
 
   // 参数变化台词表（调皮口吻）
   const L = {
@@ -58,13 +83,9 @@
     '项数': { up: '圆越叠越多啦！', down: '少叠一层！' },
     '摆长': { up: '摆变长，摆得更慢啦！', down: '摆变短，摆得更快咯！' }
   };
-  V.param = function (key, dir) {
-    const now = Date.now();
-    if (now - V._last < 900) return; // 节流，避免刷屏
-    V._last = now;
-    const t = L[key] && L[key][dir];
-    if (t) V.girl(t);
-  };
+  // 已废弃：参数播报统一改为 UI.slider 的"数值播报"（Voice.value）。
+  // 保留空实现以免旧调用报错。
+  V.param = function () { };
 
   window.Voice = V;
 })();

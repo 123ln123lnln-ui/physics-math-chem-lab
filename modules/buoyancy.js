@@ -103,13 +103,9 @@
         ]);
       }
 
-      UI.slider(panel, '物体密度 (kg/m³)', 100, 3000, 10, rhoObj, function (v) {
-        Voice.param('密度', v > rhoObj ? 'up' : 'down'); rhoObj = v; draw();
-      });
-      UI.slider(panel, '液体密度 (kg/m³)', 800, 1600, 10, rhoLiq, function (v) { rhoLiq = v; draw(); });
-      UI.slider(panel, '物体大小', 40, 90, 2, size, function (v) {
-        Voice.param('大小', v > size ? 'up' : 'down'); size = v; draw();
-      });
+      UI.slider(panel, '物体密度 (kg/m³)', 100, 3000, 10, rhoObj, function (v) { rhoObj = v; draw(); }, { unit: 'kg/m³' });
+      UI.slider(panel, '液体密度 (kg/m³)', 800, 1600, 10, rhoLiq, function (v) { rhoLiq = v; draw(); }, { unit: 'kg/m³' });
+      UI.slider(panel, '物体大小', 40, 90, 2, size, function (v) { size = v; draw(); }, { unit: 'px' });
       const hint = document.createElement('div'); hint.className = 'note';
       hint.textContent = '挑战：把液体密度调到 1030（海水），再让物体刚好悬浮——潜水艇就是这样控制沉浮的。';
       panel.appendChild(hint);

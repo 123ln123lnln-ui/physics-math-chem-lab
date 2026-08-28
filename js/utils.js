@@ -35,7 +35,8 @@
   };
 
   // 滑块控件：返回 { input, valueEl }，onInput 收到 Number 值
-  U.slider = function (container, label, min, max, step, value, onInput) {
+  // opts: { unit:'m' } — 若提供单位，拖动时自动按"名称+数值+单位"语音播报
+  U.slider = function (container, label, min, max, step, value, onInput, opts) {
     const row = document.createElement('div');
     row.className = 'control-row';
     const lab = document.createElement('label');
@@ -50,6 +51,9 @@
     input.addEventListener('input', function () {
       const v = Number(input.value);
       valSpan.textContent = v;
+      if (window.Voice && Voice.enabled && opts && opts.unit !== undefined) {
+        Voice.value(label, v, opts.unit);
+      }
       onInput(v);
     });
     row.appendChild(lab); row.appendChild(input);

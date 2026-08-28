@@ -38,6 +38,7 @@
       const ctx = UI.setupCanvas(canvas, W, H);
       let v0 = 10, theta = 45;
       let t = 0, playing = false, lastTs = null;
+      const ballTrail = [];
 
       function info() { return SCI.physx.projectile(v0, theta); }
 
@@ -65,10 +66,15 @@
         }
         ctx.stroke();
 
-        // 当前小球
+        // 当前小球（颜色随已解锁皮肤；拖尾特效解锁后显示）
         const cp = SCI.physx.projectilePoint(v0, theta, t);
         const [bx, by] = toPx(cp.x, Math.max(0, cp.y));
-        ctx.fillStyle = '#dc2626';
+        if (window.FX) {
+          ballTrail.push([bx, by]);
+          while (ballTrail.length > 24) ballTrail.shift();
+          FX.trail(ctx, ballTrail);
+        }
+        ctx.fillStyle = window.FX ? FX.ballColor() : '#dc2626';
         ctx.beginPath(); ctx.arc(bx, by, 8, 0, Math.PI * 2); ctx.fill();
 
         // 最大高度虚线
@@ -109,12 +115,8 @@
         } catch (e) { UI.showError(readoutDiv, e); }
       }
 
-      UI.slider(panel, '初速度 v₀ (m/s)', 1, 30, 0.5, v0, function (v) {
-        Voice.param('初速度', v > v0 ? 'up' : 'down'); v0 = v; reset();
-      });
-      UI.slider(panel, '发射角 θ (°)', 0, 90, 1, theta, function (v) {
-        Voice.param('角度', v > theta ? 'up' : 'down'); theta = v; reset();
-      });
+      UI.slider(panel, '初速度 v₀ (m/s)', 1, 30, 0.5, v0, function (v) { v0 = v; reset(); }, { unit: 'm/s' });
+      UI.slider(panel, '发射角 θ (°)', 0, 90, 1, theta, function (v) { theta = v; reset(); }, { unit: '°' });
 
       // 播放控制：播放/暂停 + 循环 + 速度（RAF 直接读 st）
       const st = { playing: false, loop: false };

@@ -68,6 +68,9 @@
     root.appendChild(grid);
 
     // 首页内嵌交互演示：打开即玩
+    // 奖励柜（积分解锁皮肤/特效，直接改变动画外观）
+    if (window.FX) FX.rewardsPanel(root);
+
     const tryCard = document.createElement('div');
     tryCard.className = 'viz-card';
     tryCard.style.marginTop = '28px';
@@ -170,6 +173,8 @@
 
   // ---------- 路由 ----------
   App.route = function () {
+    // 页面切换：立即打断正在播放的语音
+    if (window.Voice) Voice.stop();
     const hash = window.location.hash || '#/';
     document.querySelectorAll('.site-header nav a').forEach(a => a.classList.remove('active'));
     // 剥离 hash 内的查询参数（如 #/m/xxx?r=1），避免路由匹配失败
@@ -183,6 +188,19 @@
       App.renderSubject(sec);
     } else if (sec === 'm' && parts[1]) {
       App.renderModule(parts[1]);
+    } else if (sec === 'kb') {
+      const nav = document.querySelector('[data-nav="kb"]');
+      if (nav) nav.classList.add('active');
+      const root = clearApp();
+      if (window.Reg) {
+        if (parts[1]) {
+          const it = Reg.byId[parts[1]];
+          if (it) Reg.renderItem(root, it);
+          else root.innerHTML = '<div class="viz-card"><h3>未找到该知识点</h3><a class="back-link" href="#/kb">返回知识实验室</a></div>';
+        } else {
+          Reg.renderLabHome(root);
+        }
+      }
     } else if (sec === 'graph') {
       const nav = document.querySelector('[data-nav="graph"]');
       if (nav) nav.classList.add('active');
