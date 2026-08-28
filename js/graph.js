@@ -235,7 +235,7 @@
       if (window.ExploreData) {
         const eRoot = addNode({ name: '探索之树', type: 'root', subject: 'explore', r: 15, color: '#f59e0b', kind: 'none', level: 1 });
         const cats = {};
-        ExploreData.forEach(function (d) { const c = d.cat || '交叉'; cats[c] = cats[c] || []; cats[c].push(d); });
+        ExploreData.concat(window.ExploreData2 || []).forEach(function (d) { const c = d.cat || '交叉'; cats[c] = cats[c] || []; cats[c].push(d); });
         Object.keys(cats).forEach(function (c) {
           const cHub = addNode({ name: c, type: 'hub', subject: 'explore', r: 6, color: '#f59e0b', kind: 'none', level: 2 });
           edges.push({ a: eRoot, b: cHub, len: 100, k: 0.025, cross: false });

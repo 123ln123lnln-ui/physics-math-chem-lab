@@ -138,11 +138,11 @@
     h1.textContent = '资料篇 · 自由探索';
     root.appendChild(h1);
 
-    // 合并：手写 60 + 生成器 1011
-    const data = (window.ExploreData || E.topics).concat(window.ExploreGen || []);
+    // 精选主题：首批 60 + 第二批 30，每个都配专属原理动画
+    const data = (window.ExploreData || E.topics).concat(window.ExploreData2 || []);
     const sub = document.createElement('div');
     sub.className = 'graph-legend';
-    sub.textContent = '共 ' + data.length + ' 个探索主题（全部配备实时交互/演示动画；其中 ' + (window.ExploreGen ? window.ExploreGen.length : 0) + ' 个由生成器脚本产出，数据真实可复算）。内容超出课标、面向兴趣与高阶思维，标注"探索级"，不作为考点。';
+    sub.textContent = '共 ' + data.length + ' 个精选探索主题，每个都配专属原理动画（不为凑数做参数变体）。内容超出课标、面向兴趣与高阶思维，标注"探索级"，不作为考点。';
     root.appendChild(sub);
 
     // 搜索 + 分类筛选
