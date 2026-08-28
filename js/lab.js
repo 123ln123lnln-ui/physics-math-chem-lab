@@ -126,10 +126,13 @@
         }
       }
 
+      const sliderRefs = {};
+      let drawSweep = null; // 稍后由扫描卡片赋值
       (def.params || []).forEach(function (pm) {
-        UI.slider(panel, pm.label, pm.min, pm.max, pm.step, pm.v, function (v) {
+        sliderRefs[pm.k] = UI.slider(panel, pm.label, pm.min, pm.max, pm.step, pm.v, function (v) {
           params[pm.k] = v;
           update();
+          if (drawSweep) drawSweep();
         }, pm.unit !== undefined ? { unit: pm.unit } : undefined);
       });
 
@@ -138,6 +141,125 @@
         hint.className = 'note';
         hint.textContent = def.hint;
         panel.appendChild(hint);
+      }
+
+      /* ===== 实验级升级：参数扫描实验曲线 + 自动演示 =====
+       * 把一个参数在整个范围内扫一遍，实时画出结果变化曲线，
+       * 并支持自动播放（像真实实验一样"跑"一遍）。 */
+      const sweepKey = def.sweep || ((def.params[0] || {}).k);
+      const sweepPm = (def.params || []).find(function (p) { return p.k === sweepKey; });
+
+      if (sweepPm) {
+        const expCard = document.createElement('div');
+        expCard.className = 'viz-card';
+        expCard.innerHTML = '<h3>实验曲线 · "' + sweepPm.label.replace(/[（(].*$/, '') + '" 扫描</h3>';
+        left.appendChild(expCard);
+
+        const cw = document.createElement('canvas');
+        cw.style.cssText = 'width:100%;max-width:470px;border-radius:8px;background:#fff;display:block';
+        const CW = 470, CH = 210;
+        const dpr = Math.min(window.devicePixelRatio || 1, 2);
+        cw.width = CW * dpr; cw.height = CH * dpr;
+        expCard.appendChild(cw);
+        const cctx = cw.getContext('2d');
+        cctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+
+        function numericOf(rows) {
+          if (!Array.isArray(rows)) return null;
+          for (let i = 0; i < rows.length; i++) {
+            const v = rows[i][1];
+            if (typeof v === 'number' && isFinite(v)) return v;
+            if (typeof v === 'string') {
+              const m = parseFloat(v);
+              if (isFinite(m) && /^[-+]?[\d.]/.test(v.trim())) return m;
+            }
+          }
+          return null;
+        }
+        function sampleAt(val) {
+          const snap = {};
+          for (const k in params) snap[k] = params[k];
+          snap[sweepKey] = val;
+          try { return numericOf(def.fn(snap)); } catch (e) { return null; }
+        }
+        drawSweep = function () {
+          cctx.clearRect(0, 0, CW, CH);
+          const pts = [];
+          for (let i = 0; i <= 90; i++) {
+            const val = sweepPm.min + (sweepPm.max - sweepPm.min) * i / 90;
+            const y = sampleAt(val);
+            if (y !== null) pts.push([val, y]);
+          }
+          if (!pts.length) {
+            cctx.fillStyle = '#94a3b8'; cctx.font = '12px sans-serif';
+            cctx.fillText('本实验结果为文字型，请直接拖动滑块操作。', 40, CH / 2);
+            return;
+          }
+          let ymin = Infinity, ymax = -Infinity;
+          pts.forEach(function (p) { if (p[1] < ymin) ymin = p[1]; if (p[1] > ymax) ymax = p[1]; });
+          if (ymax - ymin < 1e-9) { ymax = ymin + 1; }
+          const padL = 46, padR = 14, padT = 14, padB = 30;
+          function X(v) { return padL + (v - sweepPm.min) / (sweepPm.max - sweepPm.min) * (CW - padL - padR); }
+          function Y(v) { return padT + (1 - (v - ymin) / (ymax - ymin)) * (CH - padT - padB); }
+          // 网格与轴
+          cctx.strokeStyle = '#e2e8f0';
+          for (let i = 0; i <= 4; i++) {
+            const gy = padT + i * (CH - padT - padB) / 4;
+            cctx.beginPath(); cctx.moveTo(padL, gy); cctx.lineTo(CW - padR, gy); cctx.stroke();
+            cctx.fillStyle = '#94a3b8'; cctx.font = '10px sans-serif'; cctx.textAlign = 'right';
+            cctx.fillText(UI.fmt(ymax - i * (ymax - ymin) / 4, 2), padL - 5, gy + 3);
+          }
+          cctx.textAlign = 'left';
+          cctx.fillStyle = '#64748b'; cctx.font = '10.5px sans-serif';
+          cctx.fillText(UI.fmt(sweepPm.min, 2), padL, CH - 10);
+          cctx.fillText(UI.fmt(sweepPm.max, 2), CW - padR - 28, CH - 10);
+          cctx.fillText('结果（首个数值输出）随 "' + sweepPm.label.replace(/[（(].*$/, '') + '" 变化', padL, 11);
+          // 曲线
+          cctx.strokeStyle = '#2563eb'; cctx.lineWidth = 2;
+          cctx.beginPath();
+          pts.forEach(function (p, i) {
+            if (i === 0) cctx.moveTo(X(p[0]), Y(p[1])); else cctx.lineTo(X(p[0]), Y(p[1]));
+          });
+          cctx.stroke();
+          // 当前值标记
+          const cv = params[sweepKey], cy2 = sampleAt(cv);
+          if (cy2 !== null) {
+            cctx.setLineDash([3, 3]); cctx.strokeStyle = '#dc2626';
+            cctx.beginPath(); cctx.moveTo(X(cv), CH - padB); cctx.lineTo(X(cv), Y(cy2)); cctx.stroke();
+            cctx.setLineDash([]);
+            cctx.fillStyle = '#dc2626';
+            cctx.beginPath(); cctx.arc(X(cv), Y(cy2), 4.5, 0, Math.PI * 2); cctx.fill();
+          }
+        }
+
+        // 自动演示：参数自动扫全程
+        const st = { playing: false, loop: true };
+        const ctrl = UI.animControls(expCard, st);
+        let sweepT = params[sweepKey];
+        let sweepDir = 1;
+        (function frame() {
+          if (st.playing) {
+            const span = sweepPm.max - sweepPm.min;
+            sweepT += sweepDir * span / 300 * Anim.speed * 2.5;
+            if (sweepT >= sweepPm.max) {
+              if (st.loop) { sweepDir = -1; sweepT = sweepPm.max; } else { sweepT = sweepPm.max; st.playing = false; ctrl.setPlaying(false); }
+            } else if (sweepT <= sweepPm.min && sweepDir === -1) {
+              if (st.loop) { sweepDir = 1; sweepT = sweepPm.min; } else { sweepT = sweepPm.min; st.playing = false; ctrl.setPlaying(false); }
+            }
+            const snapped = Math.round(sweepT / sweepPm.step) * sweepPm.step;
+            params[sweepKey] = Number(snapped.toFixed(4));
+            if (sliderRefs[sweepKey]) sliderRefs[sweepKey].setValue(params[sweepKey]);
+            update();
+            drawSweep();
+          }
+          window.requestAnimationFrame(frame);
+        })();
+
+        const tip = document.createElement('div');
+        tip.className = 'note';
+        tip.textContent = '点击播放：参数自动扫过整个范围，曲线实时跑一遍——就像真的做了一遍实验。';
+        expCard.appendChild(tip);
+        drawSweep();
       }
       update();
     }
@@ -148,8 +270,20 @@
       Quiz.add(qid, [{ q: def.quiz.q, options: def.quiz.opts, answer: def.quiz.a, explain: def.quiz.e }]);
       Quiz.render(root, qid);
     }
-    // 语音介绍
-    if (window.Voice) Voice.intro('欢迎来到知识实验室，' + item.title + '。拖动参数滑块做实验，答对检测题就能点亮知识图谱。');
+    // 知识点专属讲解语音（不再使用知识实验室的通用欢迎词）
+    if (window.Voice) {
+      let say;
+      if (item.type === 'concept') {
+        // 概念件：朗读核心讲解（截取前两句）
+        const text = (def.text || '').replace(/[（(].*?[)）]/g, '');
+        say = item.title + '。' + text.slice(0, 76);
+      } else {
+        // 公式实验：讲清楚可以调什么、看什么
+        const names = (def.params || []).map(function (p) { return p.label.replace(/[（(].*$/, ''); }).slice(0, 4).join('、');
+        say = item.title + '。这是一个公式实验：拖动滑块调节' + names + '，观察结果如何变化。';
+      }
+      Voice.intro(say);
+    }
     if (window.Progress) Progress.markVisit('kb-' + item.id);
   };
 

@@ -324,9 +324,12 @@
       nodes.forEach(function (n) { n.lit = isLitNode(n); });
     }
 
-    // ---- 物理模拟 ----
+    // ---- 物理模拟（带完整衰减：静止后不再抖动） ----
     let alpha = 1;
     function tick() {
+      // 已静止且没有拖拽 → 完全跳过物理计算（图谱稳定不动）
+      if (!dragging && alpha < 0.005) return;
+      const act = dragging ? Math.max(alpha, 0.12) : alpha;
       // 斥力
       for (let i = 0; i < nodes.length; i++) {
         for (let j = i + 1; j < nodes.length; j++) {
@@ -356,11 +359,12 @@
         n.vx += (clusterX[n.subject] - n.x) * 0.0015;
         n.vy += (H / 2 - n.y) * 0.001;
         n.vx *= 0.86; n.vy *= 0.86;
-        n.x += n.vx * alpha; n.y += n.vy * alpha;
+        n.x += n.vx * act; n.y += n.vy * act;
         n.x = Math.max(20, Math.min(W - 20, n.x));
         n.y = Math.max(20, Math.min(H - 20, n.y));
       });
-      if (alpha > 0.3) alpha *= 0.995;
+      // alpha 完整衰减到 0（约 7 秒后彻底静止），拖拽时会被重新加热
+      if (!dragging) alpha *= 0.99;
     }
 
     // ---- 视图变换（缩放/平移） ----
@@ -396,7 +400,7 @@
       const my = (ev.clientY - rect.top) * H / rect.height;
       moved = false; movedDist = 0;
       const n = findNode(mx, my);
-      if (n) { dragging = n; n.fixed = true; } else { panning = true; }
+      if (n) { dragging = n; n.fixed = true; alpha = Math.max(alpha, 0.2); } else { panning = true; }
       lastMouse = [mx, my];
     });
     window.addEventListener('mousemove', function (ev) {
