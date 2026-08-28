@@ -365,7 +365,7 @@
 
     // ---- 视图变换（缩放/平移） ----
     let scale = 1, panX = 0, panY = 0;
-    let hover = null, dragging = null, panning = false, moved = false;
+    let hover = null, dragging = null, panning = false, moved = false, movedDist = 0;
     let lastMouse = null;
 
     function toWorld(mx, my) { return [(mx - panX) / scale, (my - panY) / scale]; }
@@ -394,7 +394,7 @@
       const rect = canvas.getBoundingClientRect();
       const mx = (ev.clientX - rect.left) * W / rect.width;
       const my = (ev.clientY - rect.top) * H / rect.height;
-      moved = false;
+      moved = false; movedDist = 0;
       const n = findNode(mx, my);
       if (n) { dragging = n; n.fixed = true; } else { panning = true; }
       lastMouse = [mx, my];
@@ -405,14 +405,16 @@
       const my = (ev.clientY - rect.top) * H / rect.height;
       if (dragging) {
         const [wx, wy] = toWorld(mx, my);
+        movedDist += Math.abs(wx - dragging.x) + Math.abs(wy - dragging.y);
+        if (movedDist > 4) moved = true; // 容忍点击时的微小抖动
         dragging.x = wx; dragging.y = wy;
         dragging.vx = 0; dragging.vy = 0;
-        moved = true;
         alpha = Math.max(alpha, 0.6);
       } else if (panning && lastMouse) {
         panX += mx - lastMouse[0];
         panY += my - lastMouse[1];
-        moved = true;
+        movedDist += Math.abs(mx - lastMouse[0]) + Math.abs(my - lastMouse[1]);
+        if (movedDist > 4) moved = true;
       } else {
         hover = findNode(mx, my);
         if (hover) {
