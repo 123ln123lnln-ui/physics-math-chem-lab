@@ -113,12 +113,12 @@
     const stat = T.countLit();
     const legend = document.createElement('div');
     legend.className = 'graph-legend';
-    legend.textContent = '五级图谱：学科主干 → 学段 → 章节 → 小节 → 知识点。拖拽节点 · 滚轮缩放 · 空白处拖动平移 · 悬停高亮相邻 · 点击节点弹出知识小卡片。★金色=已点亮，进度：' +
+    legend.textContent = '同心圆盘架构：每科一个圆盘，五个同心环 = 学科主干→学段→章节→小节→知识点。拖拽节点 · 滚轮缩放 · 空白处拖动平移 · 悬停高亮相邻 · 点击节点弹出知识小卡片。★金色=已点亮，进度：' +
       stat.lit + ' / ' + stat.built + ' 个知识点（共 ' + stat.total + ' 个）。';
     root.appendChild(legend);
 
     const holder = document.createElement('div');
-    holder.style.cssText = 'position:relative;background:#0f172a;border-radius:12px;overflow:hidden;height:620px';
+    holder.style.cssText = 'position:relative;background:#0f172a;border-radius:12px;overflow:hidden;height:2520px';
     root.appendChild(holder);
     const canvas = document.createElement('canvas');
     holder.appendChild(canvas);
@@ -198,8 +198,8 @@
     card.setAttribute('data-card', '1');
     shade.id = 'gcard-shade';
 
-    const W = holder.clientWidth || 900, H = 620;
-    const dpr = window.devicePixelRatio || 1;
+    const W = holder.clientWidth || 1100, H = 2460;
+    const dpr = Math.min(window.devicePixelRatio || 1, 1.5); // 超高画布限制 DPR，防性能问题
     canvas.width = W * dpr; canvas.height = H * dpr;
     canvas.style.width = '100%'; canvas.style.height = '100%';
     const ctx = canvas.getContext('2d');
@@ -207,10 +207,20 @@
 
     // ---- 构建节点与边 ----
     const nodes = [], edges = [];
-    const clusterX = { math: W * 0.2, physics: W * 0.5, chemistry: W * 0.8 };
+    // 同心圆架构：三科纵向堆叠，每科一个圆盘；五个同心环 = 五个层级
+    const BAND = 820;
+    const centers = {
+      math: [W * 0.5, BAND * 0.5],
+      physics: [W * 0.5, BAND * 1.5],
+      chemistry: [W * 0.5, BAND * 2.5]
+    };
+    const ringR = { 1: 0, 2: 105, 3: 195, 4: 275, 5: 345 };
     function addNode(n) {
-      n.x = clusterX[n.subject] + (Math.random() - 0.5) * 260;
-      n.y = H * 0.3 + Math.random() * H * 0.4;
+      const c = centers[n.subject] || [W / 2, H / 2];
+      const rr = ringR[n.level || 3] || 180;
+      const a = Math.random() * Math.PI * 2;
+      n.x = c[0] + Math.cos(a) * rr * (0.7 + Math.random() * 0.4);
+      n.y = c[1] + Math.sin(a) * rr * (0.7 + Math.random() * 0.4);
       n.vx = 0; n.vy = 0;
       nodes.push(n);
       return n;
@@ -258,6 +268,7 @@
       };
       subjects.forEach(function (s) {
         const rootHub = addNode({ name: s[1], type: 'root', subject: s[0], r: 15, color: s[2], kind: 'none', level: 1 });
+        rootHub.fixed = true; // 主干钉在圆心
         ['初中', '高中'].forEach(function (stage) {
           const list = Reg.list(s[0], stage);
           if (!list.length) return;
@@ -353,11 +364,18 @@
         if (!e.a.fixed) { e.a.vx += fx; e.a.vy += fy; }
         if (!e.b.fixed) { e.b.vx -= fx; e.b.vy -= fy; }
       });
-      // 向各自学科中心轻微聚拢 + 积分
+      // 同心圆架构：把节点吸附到自己学科的环半径上（层级=环序）
       nodes.forEach(function (n) {
         if (n.fixed) return;
-        n.vx += (clusterX[n.subject] - n.x) * 0.0015;
-        n.vy += (H / 2 - n.y) * 0.001;
+        const c = centers[n.subject];
+        if (c) {
+          const dx = n.x - c[0], dy = n.y - c[1];
+          const d = Math.hypot(dx, dy) || 1;
+          const target = ringR[n.level || 3] || 180;
+          const f = (target - d) * 0.025;
+          n.vx += dx / d * f;
+          n.vy += dy / d * f;
+        }
         n.vx *= 0.86; n.vy *= 0.86;
         n.x += n.vx * act; n.y += n.vy * act;
         n.x = Math.max(20, Math.min(W - 20, n.x));
@@ -470,6 +488,27 @@
 
       const hi = hover ? neighbors(hover) : null;
 
+      // 同心圆参考环 + 学科标题
+      if (window.Reg && Reg.count() > 0) {
+        [['math', '数学之树', '#2563eb'], ['physics', '物理之树', '#dc2626'], ['chemistry', '化学之树', '#059669']].forEach(function (s) {
+          const c = centers[s[0]];
+          ctx.strokeStyle = 'rgba(148,163,184,.09)';
+          ctx.setLineDash([4, 6]);
+          [105, 195, 275, 345].forEach(function (r) {
+            ctx.beginPath(); ctx.arc(c[0], c[1], r, 0, Math.PI * 2); ctx.stroke();
+          });
+          ctx.setLineDash([]);
+          ctx.fillStyle = s[2];
+          ctx.font = 'bold 22px sans-serif';
+          ctx.textAlign = 'center';
+          ctx.fillText(s[1], c[0], c[1] - 375);
+          ctx.fillStyle = 'rgba(148,163,184,.5)';
+          ctx.font = '10px sans-serif';
+          ctx.fillText('环1 主干 · 环2 学段 · 环3 章节 · 环4 小节 · 环5 知识点', c[0], c[1] + 372);
+          ctx.textAlign = 'left';
+        });
+      }
+
       // 边
       edges.forEach(function (e) {
         const dim = hi && !(hi.has(e.a) && hi.has(e.b));
@@ -518,11 +557,28 @@
       ctx.restore();
     }
 
+    // 视口感知：只有图谱出现在视口附近才渲染（超大画布防卡顿）
+    let inView = true;
+    const io = new IntersectionObserver(function (ents) {
+      ents.forEach(function (en) { inView = en.isIntersecting; });
+    }, { rootMargin: '400px' });
+    io.observe(holder);
+
     (function loop() {
-      tick();
-      draw();
+      if (inView) {
+        tick();
+        draw();
+      }
       window.requestAnimationFrame(loop);
     })();
+
+    // 重置视图按钮（缩放/平移后可一键回到全览）
+    const resetBtn = document.createElement('button');
+    resetBtn.className = 'btn secondary';
+    resetBtn.style.cssText = 'position:absolute;top:12px;right:12px;z-index:6;background:#1e293b;color:#e2e8f0;border:1px solid #475569';
+    resetBtn.textContent = '⌂ 重置视图';
+    resetBtn.addEventListener('click', function () { scale = 1; panX = 0; panY = 0; });
+    holder.appendChild(resetBtn);
 
     // 交叉连线说明
     const cross = document.createElement('div');

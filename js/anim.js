@@ -9,7 +9,10 @@
 
     const playBtn = document.createElement('button');
     playBtn.className = 'btn';
-    function sync() { playBtn.textContent = st.playing ? '暂停' : '播放'; }
+    function sync() {
+      playBtn.textContent = st.playing ? '⏸ 暂停' : '▶ 播放';
+      playBtn.classList.toggle('playing', !!st.playing);
+    }
     playBtn.addEventListener('click', function () { st.playing = !st.playing; sync(); });
 
     const loopLab = document.createElement('label');

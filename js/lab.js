@@ -143,124 +143,172 @@
         panel.appendChild(hint);
       }
 
-      /* ===== 实验级升级：参数扫描实验曲线 + 自动演示 =====
-       * 把一个参数在整个范围内扫一遍，实时画出结果变化曲线，
-       * 并支持自动播放（像真实实验一样"跑"一遍）。 */
-      const sweepKey = def.sweep || ((def.params[0] || {}).k);
-      const sweepPm = (def.params || []).find(function (p) { return p.k === sweepKey; });
+      /* ===== 实验级升级 v2 =====
+       * 1) 专属"实时实验视图"：按学科/知识点类型匹配针对性动画（每个实验画面都不同）
+       * 2) 实验曲线：结果随参数变化的完整扫描
+       * 3) 自动播放：所有参与参数同时来回扫（可勾选某个参数保持不变） */
+      const allPms = def.params || [];
 
-      if (sweepPm) {
-        const expCard = document.createElement('div');
-        expCard.className = 'viz-card';
-        expCard.innerHTML = '<h3>实验曲线 · "' + sweepPm.label.replace(/[（(].*$/, '') + '" 扫描</h3>';
-        left.appendChild(expCard);
-
-        const cw = document.createElement('canvas');
-        cw.style.cssText = 'width:100%;max-width:470px;border-radius:8px;background:#fff;display:block';
-        const CW = 470, CH = 210;
-        const dpr = Math.min(window.devicePixelRatio || 1, 2);
-        cw.width = CW * dpr; cw.height = CH * dpr;
-        expCard.appendChild(cw);
-        const cctx = cw.getContext('2d');
-        cctx.setTransform(dpr, 0, 0, dpr, 0, 0);
-
-        function numericOf(rows) {
-          if (!Array.isArray(rows)) return null;
-          for (let i = 0; i < rows.length; i++) {
-            const v = rows[i][1];
-            if (typeof v === 'number' && isFinite(v)) return v;
-            if (typeof v === 'string') {
-              const m = parseFloat(v);
-              if (isFinite(m) && /^[-+]?[\d.]/.test(v.trim())) return m;
-            }
-          }
-          return null;
-        }
-        function sampleAt(val) {
-          const snap = {};
-          for (const k in params) snap[k] = params[k];
-          snap[sweepKey] = val;
-          try { return numericOf(def.fn(snap)); } catch (e) { return null; }
-        }
-        drawSweep = function () {
-          cctx.clearRect(0, 0, CW, CH);
-          const pts = [];
-          for (let i = 0; i <= 90; i++) {
-            const val = sweepPm.min + (sweepPm.max - sweepPm.min) * i / 90;
-            const y = sampleAt(val);
-            if (y !== null) pts.push([val, y]);
-          }
-          if (!pts.length) {
-            cctx.fillStyle = '#94a3b8'; cctx.font = '12px sans-serif';
-            cctx.fillText('本实验结果为文字型，请直接拖动滑块操作。', 40, CH / 2);
-            return;
-          }
-          let ymin = Infinity, ymax = -Infinity;
-          pts.forEach(function (p) { if (p[1] < ymin) ymin = p[1]; if (p[1] > ymax) ymax = p[1]; });
-          if (ymax - ymin < 1e-9) { ymax = ymin + 1; }
-          const padL = 46, padR = 14, padT = 14, padB = 30;
-          function X(v) { return padL + (v - sweepPm.min) / (sweepPm.max - sweepPm.min) * (CW - padL - padR); }
-          function Y(v) { return padT + (1 - (v - ymin) / (ymax - ymin)) * (CH - padT - padB); }
-          // 网格与轴
-          cctx.strokeStyle = '#e2e8f0';
-          for (let i = 0; i <= 4; i++) {
-            const gy = padT + i * (CH - padT - padB) / 4;
-            cctx.beginPath(); cctx.moveTo(padL, gy); cctx.lineTo(CW - padR, gy); cctx.stroke();
-            cctx.fillStyle = '#94a3b8'; cctx.font = '10px sans-serif'; cctx.textAlign = 'right';
-            cctx.fillText(UI.fmt(ymax - i * (ymax - ymin) / 4, 2), padL - 5, gy + 3);
-          }
-          cctx.textAlign = 'left';
-          cctx.fillStyle = '#64748b'; cctx.font = '10.5px sans-serif';
-          cctx.fillText(UI.fmt(sweepPm.min, 2), padL, CH - 10);
-          cctx.fillText(UI.fmt(sweepPm.max, 2), CW - padR - 28, CH - 10);
-          cctx.fillText('结果（首个数值输出）随 "' + sweepPm.label.replace(/[（(].*$/, '') + '" 变化', padL, 11);
-          // 曲线
-          cctx.strokeStyle = '#2563eb'; cctx.lineWidth = 2;
-          cctx.beginPath();
-          pts.forEach(function (p, i) {
-            if (i === 0) cctx.moveTo(X(p[0]), Y(p[1])); else cctx.lineTo(X(p[0]), Y(p[1]));
-          });
-          cctx.stroke();
-          // 当前值标记
-          const cv = params[sweepKey], cy2 = sampleAt(cv);
-          if (cy2 !== null) {
-            cctx.setLineDash([3, 3]); cctx.strokeStyle = '#dc2626';
-            cctx.beginPath(); cctx.moveTo(X(cv), CH - padB); cctx.lineTo(X(cv), Y(cy2)); cctx.stroke();
-            cctx.setLineDash([]);
-            cctx.fillStyle = '#dc2626';
-            cctx.beginPath(); cctx.arc(X(cv), Y(cy2), 4.5, 0, Math.PI * 2); cctx.fill();
+      function numericOf(rows) {
+        if (!Array.isArray(rows)) return null;
+        for (let i = 0; i < rows.length; i++) {
+          const v = rows[i][1];
+          if (typeof v === 'number' && isFinite(v)) return v;
+          if (typeof v === 'string') {
+            const m = parseFloat(v);
+            if (isFinite(m) && /^[-+]?[\d.]/.test(v.trim())) return m;
           }
         }
-
-        // 自动演示：参数自动扫全程
-        const st = { playing: false, loop: true };
-        const ctrl = UI.animControls(expCard, st);
-        let sweepT = params[sweepKey];
-        let sweepDir = 1;
-        (function frame() {
-          if (st.playing) {
-            const span = sweepPm.max - sweepPm.min;
-            sweepT += sweepDir * span / 300 * Anim.speed * 2.5;
-            if (sweepT >= sweepPm.max) {
-              if (st.loop) { sweepDir = -1; sweepT = sweepPm.max; } else { sweepT = sweepPm.max; st.playing = false; ctrl.setPlaying(false); }
-            } else if (sweepT <= sweepPm.min && sweepDir === -1) {
-              if (st.loop) { sweepDir = 1; sweepT = sweepPm.min; } else { sweepT = sweepPm.min; st.playing = false; ctrl.setPlaying(false); }
-            }
-            const snapped = Math.round(sweepT / sweepPm.step) * sweepPm.step;
-            params[sweepKey] = Number(snapped.toFixed(4));
-            if (sliderRefs[sweepKey]) sliderRefs[sweepKey].setValue(params[sweepKey]);
-            update();
-            drawSweep();
-          }
-          window.requestAnimationFrame(frame);
-        })();
-
-        const tip = document.createElement('div');
-        tip.className = 'note';
-        tip.textContent = '点击播放：参数自动扫过整个范围，曲线实时跑一遍——就像真的做了一遍实验。';
-        expCard.appendChild(tip);
-        drawSweep();
+        return null;
       }
+      const computeRows = function () {
+        try { return def.fn(params); } catch (e) { return null; }
+      };
+
+      /* --- 1) 专属实验视图 --- */
+      let vizMounted = false;
+      if (window.LabViz) {
+        const vizCard = document.createElement('div');
+        vizCard.className = 'viz-card';
+        vizCard.innerHTML = '<h3>实时实验视图</h3>';
+        left.appendChild(vizCard);
+        const vizWrap = document.createElement('div');
+        vizCard.appendChild(vizWrap);
+        vizMounted = LabViz.mount(vizWrap, item, params, computeRows);
+        if (!vizMounted) vizCard.remove();
+      }
+
+      /* --- 2) 实验曲线 --- */
+      const sweepKey = def.sweep || ((allPms[0] || {}).k);
+      const sweepPm = allPms.find(function (p) { return p.k === sweepKey; });
+      const expCard = document.createElement('div');
+      expCard.className = 'viz-card';
+      expCard.innerHTML = '<h3>实验曲线 · "' + (sweepPm ? sweepPm.label.replace(/[（(].*$/, '') : '') + '" 全范围扫描</h3>';
+      left.appendChild(expCard);
+
+      const cw = document.createElement('canvas');
+      cw.style.cssText = 'width:100%;max-width:470px;border-radius:8px;background:#fff;display:block';
+      const CW = 470, CH = 210;
+      const dpr = Math.min(window.devicePixelRatio || 1, 2);
+      cw.width = CW * dpr; cw.height = CH * dpr;
+      expCard.appendChild(cw);
+      const cctx = cw.getContext('2d');
+      cctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+
+      function sampleAt(val) {
+        const snap = {};
+        for (const k in params) snap[k] = params[k];
+        snap[sweepKey] = val;
+        try { return numericOf(def.fn(snap)); } catch (e) { return null; }
+      }
+      drawSweep = function () {
+        cctx.clearRect(0, 0, CW, CH);
+        if (!sweepPm) {
+          cctx.fillStyle = '#94a3b8'; cctx.font = '12px sans-serif';
+          cctx.fillText('本实验无可扫描参数，请直接拖动滑块操作。', 40, CH / 2);
+          return;
+        }
+        const pts = [];
+        for (let i = 0; i <= 90; i++) {
+          const val = sweepPm.min + (sweepPm.max - sweepPm.min) * i / 90;
+          const y = sampleAt(val);
+          if (y !== null) pts.push([val, y]);
+        }
+        if (!pts.length) {
+          cctx.fillStyle = '#94a3b8'; cctx.font = '12px sans-serif';
+          cctx.fillText('本实验结果为文字型，请直接拖动滑块操作。', 40, CH / 2);
+          return;
+        }
+        let ymin = Infinity, ymax = -Infinity;
+        pts.forEach(function (p) { if (p[1] < ymin) ymin = p[1]; if (p[1] > ymax) ymax = p[1]; });
+        if (ymax - ymin < 1e-9) { ymax = ymin + 1; }
+        const padL = 46, padR = 14, padT = 14, padB = 30;
+        function X(v) { return padL + (v - sweepPm.min) / (sweepPm.max - sweepPm.min) * (CW - padL - padR); }
+        function Y(v) { return padT + (1 - (v - ymin) / (ymax - ymin)) * (CH - padT - padB); }
+        cctx.strokeStyle = '#e2e8f0';
+        for (let i = 0; i <= 4; i++) {
+          const gy = padT + i * (CH - padT - padB) / 4;
+          cctx.beginPath(); cctx.moveTo(padL, gy); cctx.lineTo(CW - padR, gy); cctx.stroke();
+          cctx.fillStyle = '#94a3b8'; cctx.font = '10px sans-serif'; cctx.textAlign = 'right';
+          cctx.fillText(UI.fmt(ymax - i * (ymax - ymin) / 4, 2), padL - 5, gy + 3);
+        }
+        cctx.textAlign = 'left';
+        cctx.fillStyle = '#64748b'; cctx.font = '10.5px sans-serif';
+        cctx.fillText(UI.fmt(sweepPm.min, 2), padL, CH - 10);
+        cctx.fillText(UI.fmt(sweepPm.max, 2), CW - padR - 28, CH - 10);
+        cctx.fillText('结果随 "' + sweepPm.label.replace(/[（(].*$/, '') + '" 变化', padL, 11);
+        cctx.strokeStyle = '#2563eb'; cctx.lineWidth = 2;
+        cctx.beginPath();
+        pts.forEach(function (p, i) {
+          if (i === 0) cctx.moveTo(X(p[0]), Y(p[1])); else cctx.lineTo(X(p[0]), Y(p[1]));
+        });
+        cctx.stroke();
+        const cv = params[sweepKey], cy2 = sampleAt(cv);
+        if (cy2 !== null) {
+          cctx.setLineDash([3, 3]); cctx.strokeStyle = '#dc2626';
+          cctx.beginPath(); cctx.moveTo(X(cv), CH - padB); cctx.lineTo(X(cv), Y(cy2)); cctx.stroke();
+          cctx.setLineDash([]);
+          cctx.fillStyle = '#dc2626';
+          cctx.beginPath(); cctx.arc(X(cv), Y(cy2), 4.5, 0, Math.PI * 2); cctx.fill();
+        }
+      };
+
+      /* --- 3) 自动播放：所有参数同时来回扫 --- */
+      const st = { playing: false, loop: true };
+      const ctrl = UI.animControls(expCard, st);
+      // 参数参与开关（取消勾选 = 该参数保持不动）
+      const enabled = {};
+      const phases = {};
+      allPms.forEach(function (pm) { enabled[pm.k] = true; phases[pm.k] = Math.random() * Math.PI * 2; });
+      if (allPms.length > 1) {
+        const pWrap = document.createElement('div');
+        pWrap.className = 'anim-params';
+        const labTitle = document.createElement('span');
+        labTitle.style.cssText = 'color:#94a3b8;align-self:center';
+        labTitle.textContent = '参与自动变化的参数：';
+        pWrap.appendChild(labTitle);
+        allPms.forEach(function (pm) {
+          const lab = document.createElement('label');
+          const chk = document.createElement('input');
+          chk.type = 'checkbox'; chk.checked = true;
+          chk.addEventListener('change', function () {
+            enabled[pm.k] = chk.checked;
+            lab.classList.toggle('off', !chk.checked);
+          });
+          lab.appendChild(chk);
+          lab.appendChild(document.createTextNode(pm.label.replace(/[（(].*$/, '')));
+          pWrap.appendChild(lab);
+        });
+        expCard.appendChild(pWrap);
+      }
+      let autoT = 0;
+      (function frame() {
+        if (st.playing) {
+          autoT += 0.012 * (window.Anim ? Anim.speed : 1);
+          let anyActive = false;
+          allPms.forEach(function (pm) {
+            if (!enabled[pm.k]) return;
+            anyActive = true;
+            // 每个参数按自己的相位做平滑往复（正弦），避免机械同步
+            const ph = (Math.sin(autoT * (0.7 + phases[pm.k] * 0.15) + phases[pm.k]) + 1) / 2;
+            let val = pm.min + (pm.max - pm.min) * ph;
+            val = Math.round(val / pm.step) * pm.step;
+            val = Number(val.toFixed(4));
+            params[pm.k] = val;
+            if (sliderRefs[pm.k]) sliderRefs[pm.k].setValue(val);
+          });
+          if (!anyActive) { st.playing = false; ctrl.setPlaying(false); }
+          update();
+          drawSweep();
+        }
+        window.requestAnimationFrame(frame);
+      })();
+
+      const tip = document.createElement('div');
+      tip.className = 'note';
+      tip.textContent = '点击播放：所有勾选的参数同时自动来回变化，观察结果如何联动。取消某个参数的勾选，它就会保持不动。';
+      expCard.appendChild(tip);
+      drawSweep();
       update();
     }
 
