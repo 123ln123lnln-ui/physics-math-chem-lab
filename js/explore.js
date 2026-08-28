@@ -219,6 +219,17 @@
         const dv = document.createElement('div');
         dv.style.marginTop = '10px';
         card.appendChild(dv);
+        // 参数滑块（一个真理一个主题，参数互动可调）
+        if (tp.params && tp.params.length) {
+          tp.data = tp.data || {};
+          const pw = document.createElement('div');
+          pw.style.cssText = 'display:grid;grid-template-columns:1fr 1fr;gap:0 16px;margin-top:8px';
+          tp.params.forEach(function (pm) {
+            tp.data[pm.k] = pm.v;
+            UI.slider(pw, pm.label, pm.min, pm.max, pm.step, pm.v, function (v) { tp.data[pm.k] = v; }, pm.unit ? { unit: pm.unit } : undefined);
+          });
+          card.appendChild(pw);
+        }
         let started = false;
         const start = function () {
           if (started) return;

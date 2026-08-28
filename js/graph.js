@@ -345,7 +345,7 @@
         const dx = m[0] - lastM[0], dy = m[1] - lastM[1];
         movedDist += Math.abs(dx) + Math.abs(dy);
         yaw += dx * 0.005;
-        pitch = Math.max(0.1, Math.min(1.4, pitch + dy * 0.005));
+        pitch += dy * 0.005; // 任意角度旋转（不限制）
         tip.style.display = 'none';
       } else {
         hover = findNode(m[0], m[1]);
@@ -486,12 +486,13 @@
         ctx.fill();
         ctx.shadowBlur = 0;
         if (n.type === 'topic' && !n.lit && n.kind === 'kb') { ctx.strokeStyle = n.color; ctx.lineWidth = 1; ctx.stroke(); }
-        const showLabel = n.type !== 'topic' || n.lit || (hi && hi.has(n)) || n.deg >= 5;
+        // 文字固定屏幕字号（不随缩放变小）；放大时显示更多知识点标签
+        const showLabel = n.type !== 'topic' || n.lit || (hi && hi.has(n)) || n.deg >= 5 || zoom > 0.9;
         if (showLabel) {
           ctx.fillStyle = n.type === 'topic' ? '#cbd5e1' : '#fff';
-          ctx.font = (n.type === 'root' ? 'bold ' + Math.round(13 * p[3]) + 'px' : Math.round(10 * p[3]) + 'px') + ' sans-serif';
+          ctx.font = (n.type === 'root' ? 'bold 14px' : '11px') + ' sans-serif';
           ctx.textAlign = 'center';
-          ctx.fillText(n.name, p[0], p[1] - rr - 4);
+          ctx.fillText(n.name, p[0], p[1] - rr - 5);
           ctx.textAlign = 'left';
         }
         ctx.globalAlpha = 1;
