@@ -34,6 +34,16 @@
 
     const grid = document.createElement('div');
     grid.className = 'subject-grid';
+    // 图谱进度横幅
+    if (window.Graph) {
+      const stat = Graph.countLit();
+      const banner = document.createElement('div');
+      banner.className = 'viz-card';
+      banner.style.cssText = 'margin-top:20px;padding:14px 18px;display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:10px';
+      banner.innerHTML = '<div style="font-size:14px">🌱 <b>知识图谱</b>：已点亮 <b>' + stat.lit + '</b> / ' + stat.built + ' 个互动件知识点。去 <a href="#/graph">看看你的成长之树 →</a></div>';
+      root.appendChild(banner);
+    }
+
     const defs = [
       { subject: 'math', title: '数学', cls: '', desc: '函数、几何、三角、解析几何与微积分入门', formula: 'y=ax^2+bx+c' },
       { subject: 'physics', title: '物理', cls: 'physics', desc: '运动、力、光、电与振动波动', formula: 's=v_0t+\\tfrac{1}{2}at^2' },
@@ -113,6 +123,15 @@
     } catch (e) {
       UI.showError(root, e);
     }
+
+    // 磁性男播音：模块介绍（进入页面自动播报）
+    if (m.intro && window.Voice) Voice.intro(m.intro);
+
+    // 趣味答题区（答对得积分、点亮知识点）
+    if (window.Quiz) Quiz.render(root, m.id);
+
+    // 首次探索积分
+    if (window.Progress) Progress.markVisit(m.id);
   };
 
   // 自检台：浏览器内跑黄金测试
@@ -153,7 +172,9 @@
   App.route = function () {
     const hash = window.location.hash || '#/';
     document.querySelectorAll('.site-header nav a').forEach(a => a.classList.remove('active'));
-    const parts = hash.replace(/^#\//, '').split('/').filter(Boolean);
+    // 剥离 hash 内的查询参数（如 #/m/xxx?r=1），避免路由匹配失败
+    const clean = hash.split('?')[0];
+    const parts = clean.replace(/^#\//, '').split('/').filter(Boolean);
     if (parts.length === 0) { App.renderHome(); return; }
     const sec = parts[0];
     if (sec === 'math' || sec === 'physics' || sec === 'chemistry') {
@@ -162,6 +183,16 @@
       App.renderSubject(sec);
     } else if (sec === 'm' && parts[1]) {
       App.renderModule(parts[1]);
+    } else if (sec === 'graph') {
+      const nav = document.querySelector('[data-nav="graph"]');
+      if (nav) nav.classList.add('active');
+      const root = clearApp();
+      if (window.Graph) Graph.render(root);
+    } else if (sec === 'explore') {
+      const nav = document.querySelector('[data-nav="explore"]');
+      if (nav) nav.classList.add('active');
+      const root = clearApp();
+      if (window.Explore) Explore.render(root);
     } else if (sec === 'lab') {
       const nav = document.querySelector('[data-nav="lab"]');
       if (nav) nav.classList.add('active');

@@ -60,6 +60,7 @@
       const arc = board.create('angle', [[1, 0], [0, 0], P], { radius: 0.35, orthoType: 'square', strokeColor: '#f59e0b' });
 
       const slider = UI.slider(panel, 'α（角度制）', 0, 360, 1, deg, function (v) {
+        Voice.param('角度', v > deg ? 'up' : 'down');
         deg = v;
         P.moveTo([Math.cos(toRad()), Math.sin(toRad())], 50);
         update();

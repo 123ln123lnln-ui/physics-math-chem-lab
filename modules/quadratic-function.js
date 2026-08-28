@@ -97,7 +97,9 @@
         }
       }
 
-      UI.slider(panel, 'a（开口大小与方向）', -5, 5, 0.1, a, function (v) { a = v; if (a === 0) a = 0.1; update(); });
+      UI.slider(panel, 'a（开口大小与方向）', -5, 5, 0.1, a, function (v) {
+        Voice.param('大小', Math.abs(v) > Math.abs(a) ? 'up' : 'down'); a = v; if (a === 0) a = 0.1; update();
+      });
       UI.slider(panel, 'b', -10, 10, 0.5, b, function (v) { b = v; update(); });
       UI.slider(panel, 'c（与 y 轴交点）', -8, 8, 0.5, c, function (v) { c = v; update(); });
 

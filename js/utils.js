@@ -92,5 +92,24 @@
     return ctx;
   };
 
+  // Toast 提示（积分、解锁等反馈）
+  U.toast = function (text) {
+    let host = document.getElementById('toast-host');
+    if (!host) {
+      host = document.createElement('div');
+      host.id = 'toast-host';
+      document.body.appendChild(host);
+    }
+    const t = document.createElement('div');
+    t.className = 'toast';
+    t.textContent = text;
+    host.appendChild(t);
+    window.setTimeout(function () { t.classList.add('show'); }, 10);
+    window.setTimeout(function () {
+      t.classList.remove('show');
+      window.setTimeout(function () { t.remove(); }, 350);
+    }, 2200);
+  };
+
   global.UI = U;
 })(window);

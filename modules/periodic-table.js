@@ -31,7 +31,14 @@
           div.style.background = colors[e.c] || '#f1f5f9';
           div.innerHTML = '<div class="z">' + e.z + '</div><div class="s">' + e.s + '</div>';
           div.title = e.cn + '（' + e.en + '）';
-          div.addEventListener('click', function () { showDetail(e); });
+          div.addEventListener('click', function () {
+            showDetail(e);
+            // 点亮特效
+            div.classList.remove('pt-pulse');
+            void div.offsetWidth; // 重启动画
+            div.classList.add('pt-pulse');
+            if (window.Voice) Voice.girl('这是' + e.cn + '，' + (e.c === '稀有气体' ? '稀有气体，性格高冷！' : e.c === '碱金属' ? '活泼的碱金属！' : e.c === '卤素' ? '活泼的卤素！' : '第 ' + e.p + ' 周期的元素！'));
+          });
           grid.appendChild(div);
         }
       }

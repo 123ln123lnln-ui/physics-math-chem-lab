@@ -49,12 +49,16 @@
     }
 
     function frame(ts) {
-      if (playing) {
+      if (st.playing) {
         if (lastTs === null) lastTs = ts;
-        t += (ts - lastTs) / 1000;
+        t += (ts - lastTs) / 1000 * Anim.speed;
         lastTs = ts;
-        if (t >= info().tFlight) { t = info().tFlight; playing = false; playBtn.textContent = '播放'; }
+        if (t >= info().tFlight) {
+          if (st.loop) { t = 0; } else { t = info().tFlight; st.playing = false; ctrl.setPlaying(false); }
+        }
         draw(); updateReadout();
+      } else {
+        lastTs = null;
       }
       window.requestAnimationFrame(frame);
     }
@@ -72,20 +76,24 @@
       } catch (e) { readoutDiv.innerHTML = ''; UI.showError(readoutDiv, e); }
     }
 
-    function reset() { t = 0; playing = false; playBtn.textContent = '播放'; lastTs = null; draw(); updateReadout(); }
+    // 播放控制（先声明，reset 依赖）
+    const st = { playing: false, loop: false };
+    const ctrl = UI.animControls(container, st);
 
-    UI.slider(controls, '初速度 v₀ (m/s)', 5, 30, 0.5, v0, function (v) { v0 = v; reset(); });
-    UI.slider(controls, '发射角 θ (°)', 10, 80, 1, theta, function (v) { theta = v; reset(); });
+    function reset() { t = 0; st.playing = false; ctrl.setPlaying(false); lastTs = null; draw(); updateReadout(); }
 
-    const btnRow = document.createElement('div'); btnRow.className = 'btn-row';
-    const playBtn = document.createElement('button'); playBtn.className = 'btn'; playBtn.textContent = '播放';
-    playBtn.addEventListener('click', function () { playing = !playing; playBtn.textContent = playing ? '暂停' : '播放'; });
-    btnRow.appendChild(playBtn);
+    UI.slider(controls, '初速度 v₀ (m/s)', 5, 30, 0.5, v0, function (v) {
+      if (window.Voice) Voice.param('初速度', v > v0 ? 'up' : 'down');
+      v0 = v; reset();
+    });
+    UI.slider(controls, '发射角 θ (°)', 10, 80, 1, theta, function (v) {
+      if (window.Voice) Voice.param('角度', v > theta ? 'up' : 'down');
+      theta = v; reset();
+    });
     const tip = document.createElement('span');
-    tip.style.cssText = 'font-size:12.5px;color:#64748b;align-self:center';
+    tip.style.cssText = 'font-size:12.5px;color:#64748b';
     tip.textContent = '试试：固定初速度，角度调到 45° 射程最大';
-    btnRow.appendChild(tip);
-    container.appendChild(btnRow);
+    ctrl.el.appendChild(tip);
     container.appendChild(readoutDiv);
 
     reset();

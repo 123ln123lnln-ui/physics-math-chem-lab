@@ -119,3 +119,57 @@ button.btn:hover { filter: brightness(1.08); }
 /* Back link */
 .back-link { display: inline-block; margin-bottom: 12px; color: var(--c-muted); text-decoration: none; font-size: 13px; }
 .back-link:hover { color: var(--c-primary); }
+
+/* ===== 游戏化 / 播放控制 / 语音 ===== */
+.pts-badge { font-size: 12px; background: #f1f5f9; border-radius: 99px; padding: 4px 12px; color: var(--c-muted); font-weight: 600; margin-left: 10px; }
+.voice-toggle { font-size: 12px; color: var(--c-muted); cursor: pointer; user-select: none; margin-left: 8px; }
+
+.anim-ctrl { display: flex; align-items: center; gap: 14px; margin: 10px 0 4px; flex-wrap: wrap; }
+.anim-loop, .anim-speed { font-size: 13px; color: var(--c-text); display: flex; align-items: center; gap: 5px; }
+.anim-speed select { padding: 3px 6px; border-radius: 6px; border: 1px solid #cbd5e1; }
+
+#toast-host { position: fixed; top: 70px; right: 18px; z-index: 999; display: flex; flex-direction: column; gap: 8px; }
+.toast { background: #1e293b; color: #fff; font-size: 13px; padding: 9px 16px; border-radius: 10px; opacity: 0; transform: translateY(-6px); transition: all .3s; box-shadow: 0 4px 14px rgba(0,0,0,.25); }
+.toast.show { opacity: 1; transform: translateY(0); }
+
+.quiz-card .quiz-q { font-weight: 700; margin: 8px 0; }
+.quiz-options { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+@media (max-width: 640px) { .quiz-options { grid-template-columns: 1fr; } }
+.quiz-opt { text-align: left; padding: 9px 12px; border: 1px solid #cbd5e1; border-radius: 8px; background: #fff; cursor: pointer; font-size: 13.5px; }
+.quiz-opt:hover { border-color: var(--c-primary); background: #eff6ff; }
+.quiz-opt.right { background: #dcfce7; border-color: #22c55e; }
+.quiz-opt.wrong { background: #fee2e2; border-color: #ef4444; }
+.quiz-explain { margin-top: 10px; font-size: 13px; padding: 8px 12px; border-radius: 8px; }
+.quiz-explain.ok { background: #f0fdf4; border: 1px solid #bbf7d0; }
+.quiz-explain.no { background: #fff7ed; border: 1px solid #fed7aa; }
+
+/* 知识图谱树 */
+.graph-page h1 { margin-bottom: 4px; }
+.graph-legend { font-size: 12.5px; color: var(--c-muted); margin-bottom: 14px; }
+.graph-tree { display: flex; gap: 26px; overflow-x: auto; padding-bottom: 12px; }
+.g-col { min-width: 190px; }
+.g-col h3 { font-size: 15px; margin: 0 0 8px; }
+.g-node { padding: 6px 12px; border-radius: 8px; margin: 4px 0; font-size: 13px; border: 1px solid #e2e8f0; background: #fff; color: #94a3b8; cursor: default; position: relative; }
+.g-node.lit { background: linear-gradient(90deg, #fff7ed, #fff); border-color: #f59e0b; color: var(--c-text); font-weight: 700; box-shadow: 0 0 0 1px rgba(245,158,11,.25); }
+.g-node.lit::before { content: '★ '; color: #f59e0b; }
+.g-node.has-link { cursor: pointer; }
+.g-node.has-link:hover { border-color: var(--c-primary); }
+.g-node .g-sub { font-size: 11px; color: var(--c-muted); margin-left: 4px; }
+.g-branch { border-left: 2px solid #e2e8f0; margin-left: 10px; padding-left: 14px; }
+.g-cross { margin-top: 22px; background: #f8fafc; border: 1px dashed #cbd5e1; border-radius: 10px; padding: 14px 16px; font-size: 13px; color: var(--c-muted); }
+.g-cross b { color: var(--c-text); }
+
+/* 皮肤（CSS 变量覆盖） */
+html[data-skin="fire"] { --c-primary: #ea580c; --c-primary-dark: #c2410c; }
+html[data-skin="mint"] { --c-primary: #0d9488; --c-primary-dark: #0f766e; }
+html[data-skin="fire"] .g-node.lit { border-color: #ea580c; }
+
+/* 拖尾特效（解锁后给动画小球） */
+.fx-trail .ball { filter: drop-shadow(0 0 6px rgba(220,38,38,.7)); }
+
+/* 元素点击点亮特效 */
+@keyframes ptPulse {
+  0% { box-shadow: 0 0 0 0 rgba(245,158,11,.8); transform: scale(1.15); }
+  100% { box-shadow: 0 0 0 14px rgba(245,158,11,0); transform: scale(1); }
+}
+.pt-pulse { animation: ptPulse .6s ease-out; z-index: 5; position: relative; }

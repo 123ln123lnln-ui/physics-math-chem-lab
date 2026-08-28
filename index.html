@@ -8,24 +8,24 @@
 
   <!-- KaTeX: 公式渲染（本地托管，离线可用） -->
   <link rel="stylesheet" href="vendor/katex.min.css">
-  <script src="vendor/katex.min.js"></script>
+  <script src="vendor/katex.min.js?v=2"></script>
 
   <!-- JSXGraph: 动态几何与函数绘图（本地托管） -->
   <link rel="stylesheet" href="vendor/jsxgraph.css">
-  <script src="vendor/jsxgraphcore.js"></script>
+  <script src="vendor/jsxgraphcore.js?v=2"></script>
 
   <!-- Three.js: 3D 分子结构（本地托管） -->
-  <script src="vendor/three.min.js"></script>
+  <script src="vendor/three.min.js?v=2"></script>
 
   <!-- 科学引擎（单一事实源 + 量纲校验） -->
-  <script src="engine/constants.js"></script>
-  <script src="engine/units.js"></script>
-  <script src="engine/integrator.js"></script>
-  <script src="engine/mathx.js"></script>
-  <script src="engine/physx.js"></script>
-  <script src="engine/chemx.js"></script>
+  <script src="engine/constants.js?v=2"></script>
+  <script src="engine/units.js?v=2"></script>
+  <script src="engine/integrator.js?v=2"></script>
+  <script src="engine/mathx.js?v=2"></script>
+  <script src="engine/physx.js?v=2"></script>
+  <script src="engine/chemx.js?v=2"></script>
 
-  <link rel="stylesheet" href="css/style.css">
+  <link rel="stylesheet" href="css/style.css?v=2">
 </head>
 <body>
   <header class="site-header">
@@ -35,7 +35,11 @@
         <a href="#/math" data-nav="math">数学</a>
         <a href="#/physics" data-nav="physics">物理</a>
         <a href="#/chemistry" data-nav="chemistry">化学</a>
+        <a href="#/graph" data-nav="graph">知识图谱</a>
+        <a href="#/explore" data-nav="explore">资料篇</a>
         <a href="#/lab" data-nav="lab">自检台</a>
+        <span class="pts-badge" id="pts-badge">积分 0</span>
+        <span class="voice-toggle" id="voice-toggle">🔊 语音</span>
       </nav>
     </div>
   </header>
@@ -48,21 +52,35 @@
   </footer>
 
   <!-- 站点框架与模块 -->
-  <script src="js/utils.js"></script>
-  <script src="js/home-demo.js"></script>
-  <script src="js/app.js"></script>
-  <script src="modules/quadratic-function.js"></script>
-  <script src="modules/trig-unit-circle.js"></script>
-  <script src="modules/derivative-tangent.js"></script>
-  <script src="modules/ellipse.js"></script>
-  <script src="modules/free-fall.js"></script>
-  <script src="modules/projectile.js"></script>
-  <script src="modules/lens-imaging.js"></script>
-  <script src="modules/shm-spring.js"></script>
-  <script src="modules/water-molecule.js"></script>
-  <script src="modules/periodic-table.js"></script>
-  <script src="modules/titration.js"></script>
-  <script src="engine/tests.js"></script>
-  <script src="js/bootstrap.js"></script>
+  <script src="js/utils.js?v=2"></script>
+  <script src="js/anim.js?v=2"></script>
+  <script src="js/voice.js?v=2"></script>
+  <script src="js/progress.js?v=2"></script>
+  <script src="js/quiz.js?v=2"></script>
+  <script src="js/questions.js?v=2"></script>
+  <script src="js/graph.js?v=2"></script>
+  <script src="js/home-demo.js?v=2"></script>
+  <script src="js/app.js?v=2"></script>
+  <script src="js/explore.js?v=2"></script>
+  <script src="modules/quadratic-function.js?v=2"></script>
+  <script src="modules/trig-unit-circle.js?v=2"></script>
+  <script src="modules/derivative-tangent.js?v=2"></script>
+  <script src="modules/ellipse.js?v=2"></script>
+  <script src="modules/free-fall.js?v=2"></script>
+  <script src="modules/projectile.js?v=2"></script>
+  <script src="modules/lens-imaging.js?v=2"></script>
+  <script src="modules/shm-spring.js?v=2"></script>
+  <script src="modules/water-molecule.js?v=2"></script>
+  <script src="modules/periodic-table.js?v=2"></script>
+  <script src="modules/titration.js?v=2"></script>
+  <script src="modules/pythagoras.js?v=2"></script>
+  <script src="modules/linear-function.js?v=2"></script>
+  <script src="modules/lever-balance.js?v=2"></script>
+  <script src="modules/ohms-law.js?v=2"></script>
+  <script src="modules/buoyancy.js?v=2"></script>
+  <script src="modules/metal-displacement.js?v=2"></script>
+  <script src="modules/equation-balance.js?v=2"></script>
+  <script src="engine/tests.js?v=2"></script>
+  <script src="js/bootstrap.js?v=2"></script>
 </body>
 </html>

@@ -76,13 +76,17 @@
       }
 
       function frame(ts) {
-        if (playing) {
+        if (st.playing) {
           if (lastTs === null) lastTs = ts;
-          t += (ts - lastTs) / 1000;
+          t += (ts - lastTs) / 1000 * Anim.speed;
           lastTs = ts;
-          if (t >= maxT()) { t = maxT(); playing = false; }
+          if (t >= maxT()) {
+            if (st.loop) { t = 0; } else { t = maxT(); st.playing = false; ctrl.setPlaying(false); }
+          }
           draw();
           updateReadout();
+        } else {
+          lastTs = null;
         }
         raf = window.requestAnimationFrame(frame);
       }
@@ -101,18 +105,20 @@
         } catch (e) { UI.showError(readoutDiv, e); }
       }
 
-      UI.slider(panel, '初始高度 h₀ (m)', 1, 20, 0.1, h0, function (v) { h0 = v; reset(); });
-      UI.slider(panel, '初速度 v₀ (m/s，0=自由落体)', 0, 30, 1, v0, function (v) { v0 = v; reset(); });
+      UI.slider(panel, '初始高度 h₀ (m)', 1, 20, 0.1, h0, function (v) {
+        Voice.param('高度', v > h0 ? 'up' : 'down'); h0 = v; reset();
+      });
+      UI.slider(panel, '初速度 v₀ (m/s，0=自由落体)', 0, 30, 1, v0, function (v) {
+        Voice.param('初速度', v > v0 ? 'up' : 'down'); v0 = v; reset();
+      });
 
-      const btnRow = document.createElement('div'); btnRow.className = 'btn-row';
-      const playBtn = document.createElement('button'); playBtn.className = 'btn'; playBtn.textContent = '播放';
+      const st = { playing: false, loop: false };
+      const ctrl = UI.animControls(panel, st);
       const resetBtn = document.createElement('button'); resetBtn.className = 'btn secondary'; resetBtn.textContent = '重置';
-      playBtn.addEventListener('click', function () { playing = !playing; playBtn.textContent = playing ? '暂停' : '播放'; });
-      resetBtn.addEventListener('click', reset);
-      btnRow.appendChild(playBtn); btnRow.appendChild(resetBtn);
-      panel.appendChild(btnRow);
+      resetBtn.addEventListener('click', function () { st.playing = false; ctrl.setPlaying(false); reset(); });
+      panel.appendChild(resetBtn);
 
-      function reset() { t = 0; playing = false; playBtn.textContent = '播放'; lastTs = null; draw(); updateReadout(); }
+      function reset() { t = 0; lastTs = null; draw(); updateReadout(); }
 
       formulaDiv.innerHTML = '';
       UI.texBlock(formulaDiv, 'h = \\tfrac{1}{2}gt^2,\\quad v = \\sqrt{2gh},\\quad g = 9.8\\ \\text{N/kg}');

@@ -138,7 +138,9 @@
         }
       }
 
-      UI.slider(panel, '物距 u (cm)', 5.5, 40, 0.5, uCm, function (v) { uCm = v; draw(); });
+      UI.slider(panel, '物距 u (cm)', 5.5, 40, 0.5, uCm, function (v) {
+        Voice.param('距离', v > uCm ? 'up' : 'down'); uCm = v; draw();
+      });
       formulaDiv.innerHTML = '';
       UI.texBlock(formulaDiv, '\\frac{1}{u}+\\frac{1}{v}=\\frac{1}{f}');
       const hint = document.createElement('div'); hint.className = 'note';

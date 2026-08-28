@@ -79,14 +79,18 @@
       }
 
       function frame(ts) {
-        if (playing) {
+        if (st.playing) {
           if (lastTs === null) lastTs = ts;
-          t += (ts - lastTs) / 1000;
+          t += (ts - lastTs) / 1000 * Anim.speed;
           lastTs = ts;
           const inf = info();
-          if (t >= inf.tFlight) { t = inf.tFlight; playing = false; }
+          if (t >= inf.tFlight) {
+            if (st.loop) { t = 0; } else { t = inf.tFlight; st.playing = false; ctrl.setPlaying(false); }
+          }
           draw();
           updateReadout();
+        } else {
+          lastTs = null;
         }
         window.requestAnimationFrame(frame);
       }
@@ -105,18 +109,21 @@
         } catch (e) { UI.showError(readoutDiv, e); }
       }
 
-      UI.slider(panel, '初速度 v₀ (m/s)', 1, 30, 0.5, v0, function (v) { v0 = v; reset(); });
-      UI.slider(panel, '发射角 θ (°)', 0, 90, 1, theta, function (v) { theta = v; reset(); });
+      UI.slider(panel, '初速度 v₀ (m/s)', 1, 30, 0.5, v0, function (v) {
+        Voice.param('初速度', v > v0 ? 'up' : 'down'); v0 = v; reset();
+      });
+      UI.slider(panel, '发射角 θ (°)', 0, 90, 1, theta, function (v) {
+        Voice.param('角度', v > theta ? 'up' : 'down'); theta = v; reset();
+      });
 
-      const btnRow = document.createElement('div'); btnRow.className = 'btn-row';
-      const playBtn = document.createElement('button'); playBtn.className = 'btn'; playBtn.textContent = '播放';
+      // 播放控制：播放/暂停 + 循环 + 速度（RAF 直接读 st）
+      const st = { playing: false, loop: false };
+      const ctrl = UI.animControls(panel, st);
       const resetBtn = document.createElement('button'); resetBtn.className = 'btn secondary'; resetBtn.textContent = '重置';
-      playBtn.addEventListener('click', function () { playing = !playing; playBtn.textContent = playing ? '暂停' : '播放'; });
-      resetBtn.addEventListener('click', reset);
-      btnRow.appendChild(playBtn); btnRow.appendChild(resetBtn);
-      panel.appendChild(btnRow);
+      resetBtn.addEventListener('click', function () { st.playing = false; ctrl.setPlaying(false); reset(); });
+      panel.appendChild(resetBtn);
 
-      function reset() { t = 0; playing = false; playBtn.textContent = '播放'; lastTs = null; draw(); updateReadout(); }
+      function reset() { t = 0; lastTs = null; draw(); updateReadout(); }
 
       formulaDiv.innerHTML = '';
       UI.texBlock(formulaDiv, 'R = \\frac{v_0^2\\sin 2\\theta}{g},\\quad H = \\frac{v_0^2\\sin^2\\theta}{2g}');

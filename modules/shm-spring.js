@@ -88,12 +88,14 @@
       }
 
       function frame(ts) {
-        if (playing) {
+        if (st.playing) {
           if (lastTs === null) lastTs = ts;
-          t += (ts - lastTs) / 1000;
+          t += (ts - lastTs) / 1000 * Anim.speed;
           lastTs = ts;
           draw();
           updateReadout();
+        } else {
+          lastTs = null;
         }
         window.requestAnimationFrame(frame);
       }
@@ -114,11 +116,12 @@
         } catch (e) { UI.showError(readoutDiv, e); }
       }
 
-      UI.slider(panel, '质量 m (kg)', 0.2, 5, 0.1, m, function (v) { m = v; });
+      UI.slider(panel, '质量 m (kg)', 0.2, 5, 0.1, m, function (v) {
+        Voice.param('质量', v > m ? 'up' : 'down'); m = v;
+      });
       UI.slider(panel, '劲度系数 k (N/m)', 5, 200, 1, Math.round(k), function (v) { k = v; });
-      const playBtn = document.createElement('button'); playBtn.className = 'btn'; playBtn.textContent = '暂停';
-      playBtn.addEventListener('click', function () { playing = !playing; playBtn.textContent = playing ? '暂停' : '播放'; });
-      panel.appendChild(playBtn);
+      const st = { playing: true, loop: true };
+      UI.animControls(panel, st);
 
       formulaDiv.innerHTML = '';
       UI.texBlock(formulaDiv, 'T = 2\\pi\\sqrt{\\frac{m}{k}},\\quad x = A\\cos(\\omega t)');
