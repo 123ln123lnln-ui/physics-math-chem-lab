@@ -74,7 +74,7 @@
     const stat = T.countLit();
     const legend = document.createElement('div');
     legend.className = 'graph-legend';
-    legend.textContent = '拖拽旋转 · 滚轮缩放 · 悬停高亮关联子网 · 点击弹卡片。外壳 = 四学科+探索全部知识，内核 15 颗大节点 = 贯穿一切知识的科学真理（金色虚线双向挂接）；蓝色虚线 = 前置依赖，金色实线 = 跨学科关联。★金=已点亮，进度 ' +
+    legend.textContent = '拖拽旋转 · 滚轮缩放 · 悬停高亮关联子网 · 点击弹卡片。左上角可把某棵学科树「拉出来」单独查看（再点一次收回去），拉出时它与外界的桥——前置依赖(蓝)、跨学科关联(金实线)、真理挂接(金虚线)——会高亮流动。外壳 = 四学科+探索全部知识，内核 15 颗大节点 = 贯穿一切知识的科学真理。★金=已点亮，进度 ' +
       stat.lit + ' / ' + stat.total + '。';
     root.appendChild(legend);
 
@@ -128,6 +128,10 @@
       const p = sph(phi, theta, r);
       n.x = p[0]; n.y = p[1]; n.z = p[2];
       n.shell = r;
+      // 树拉出/收回：球心(cx,cy,cz)与半径(shell)各自向目标缓动
+      n.cx = 0; n.cy = 0; n.cz = 0;
+      n.ctx = 0; n.cty = 0; n.ctz = 0;
+      n.shellTar = r;
       n.vx = 0; n.vy = 0; n.vz = 0;
       n.deg = 0;
       nodes.push(n);
@@ -258,6 +262,57 @@
       });
     }
 
+    // ---- 树枝拉出/收回：每棵树可以整体从主球上摘下来单独查看，看完再收回去 ----
+    // 拉出后该树成为一个独立小球（沿自己学科经度带方向弹出），其余树变淡，
+    // 它与外界/真理内核之间的桥（前置依赖·跨学科关联·真理挂接）会高亮并流动。
+    const pull = { math: false, physics: false, chemistry: false, explore: false };
+    function anyPull() { return pull.math || pull.physics || pull.chemistry || pull.explore; }
+    function setPull(sub, on) {
+      pull[sub] = on;
+      const dist = R_OUT + 470;
+      nodes.forEach(function (n) {
+        if (n.kind === 'truth' || n.subject === 'truth') return; // 真理内核始终留在中心
+        if (pull[n.subject]) {
+          const phi = (SECTORS[n.subject] || SECTORS.math).phi;
+          n.ctx = Math.cos(phi) * dist; n.cty = 0; n.ctz = Math.sin(phi) * dist;
+          n.shellTar = 235;
+        } else {
+          n.ctx = 0; n.cty = 0; n.ctz = 0; n.shellTar = R_OUT;
+        }
+      });
+      if (on) zoom = Math.min(zoom, 0.5);
+      alpha = Math.max(alpha, 0.75); // 重新加热力导向，让树在新球壳上舒展
+      drawPullBar();
+    }
+
+    const pullBar = document.createElement('div');
+    pullBar.style.cssText = 'position:absolute;top:12px;left:12px;z-index:6;display:flex;gap:6px;flex-wrap:wrap;max-width:72%';
+    holder.appendChild(pullBar);
+    function drawPullBar() {
+      pullBar.innerHTML = '';
+      Object.keys(SECTORS).forEach(function (sk) {
+        const sec = SECTORS[sk];
+        const on = pull[sk];
+        const b = document.createElement('button');
+        b.style.cssText = 'padding:3px 10px;font-size:12px;border-radius:12px;cursor:pointer;border:1px solid ' + sec.color +
+          ';background:' + (on ? sec.color : 'rgba(30,41,59,.88)') + ';color:' + (on ? '#fff' : '#e2e8f0');
+        b.textContent = (on ? '↩ 收回' : '🌿 拉出') + '·' + sec.label;
+        b.addEventListener('click', function () { setPull(sk, !pull[sk]); });
+        pullBar.appendChild(b);
+      });
+      if (anyPull()) {
+        const all = document.createElement('button');
+        all.style.cssText = 'padding:3px 10px;font-size:12px;border-radius:12px;cursor:pointer;border:1px solid #94a3b8;background:rgba(30,41,59,.88);color:#e2e8f0';
+        all.textContent = '⇤ 全部收回';
+        all.addEventListener('click', function () {
+          Object.keys(pull).forEach(function (k) { pull[k] = false; });
+          setPull('math', false); // 重算全部目标（此时无树被拉出 → 全部回家）
+        });
+        pullBar.appendChild(all);
+      }
+    }
+    drawPullBar();
+
     // ---- 3D 相机：真正的绕 Y / 绕 X 旋转 ----
     let yaw = 0.6, pitch = 0.35, zoom = 0.62;
     const CAMD = 2400;
@@ -275,35 +330,47 @@
     // ---- 3D 力导向：同学科斥力 + 弹簧，投影回球壳 ----
     let alpha = 1;
     function tick() {
-      if (alpha < 0.005) return;
-      for (let i = 0; i < nodes.length; i++) {
-        for (let j = i + 1; j < nodes.length; j++) {
-          const A = nodes[i], B = nodes[j];
-          if (A.subject !== B.subject) continue;
-          let dx = B.x - A.x, dy = B.y - A.y, dz = B.z - A.z;
-          let d2 = dx * dx + dy * dy + dz * dz;
-          if (d2 < 1) { d2 = 1; dx = Math.random() - 0.5; dy = Math.random() - 0.5; dz = Math.random() - 0.5; }
-          const d = Math.sqrt(d2);
-          const f = 2600 / d2;
-          A.vx -= dx / d * f; A.vy -= dy / d * f; A.vz -= dz / d * f;
-          B.vx += dx / d * f; B.vy += dy / d * f; B.vz += dz / d * f;
-        }
-      }
-      edges.forEach(function (e) {
-        if (e.truth) return; // 真理虚线不参与力学，避免内核被拉变形
-        const dx = e.b.x - e.a.x, dy = e.b.y - e.a.y, dz = e.b.z - e.a.z;
-        const d = Math.sqrt(dx * dx + dy * dy + dz * dz) || 1;
-        const f = (d - e.len) * e.k;
-        e.a.vx += dx / d * f; e.a.vy += dy / d * f; e.a.vz += dz / d * f;
-        e.b.vx -= dx / d * f; e.b.vy -= dy / d * f; e.b.vz -= dz / d * f;
+      // 球心/半径缓动始终进行（拉出/收回动画不依赖力导向热度）
+      let easing = false;
+      nodes.forEach(function (n) {
+        n.cx += (n.ctx - n.cx) * 0.07; n.cy += (n.cty - n.cy) * 0.07; n.cz += (n.ctz - n.cz) * 0.07;
+        n.shell += (n.shellTar - n.shell) * 0.07;
+        if (Math.abs(n.ctx - n.cx) + Math.abs(n.cty - n.cy) + Math.abs(n.ctz - n.cz) + Math.abs(n.shellTar - n.shell) > 0.4) easing = true;
       });
+      if (alpha < 0.005 && !easing) return;
+      if (alpha >= 0.005) {
+        for (let i = 0; i < nodes.length; i++) {
+          for (let j = i + 1; j < nodes.length; j++) {
+            const A = nodes[i], B = nodes[j];
+            if (A.subject !== B.subject) continue;
+            // 同球壳的节点才有斥力（不同树的节点可能已分开）
+            if (Math.abs(A.cx - B.cx) + Math.abs(A.cy - B.cy) + Math.abs(A.cz - B.cz) > 1) continue;
+            let dx = B.x - A.x, dy = B.y - A.y, dz = B.z - A.z;
+            let d2 = dx * dx + dy * dy + dz * dz;
+            if (d2 < 1) { d2 = 1; dx = Math.random() - 0.5; dy = Math.random() - 0.5; dz = Math.random() - 0.5; }
+            const d = Math.sqrt(d2);
+            const f = 2600 / d2;
+            A.vx -= dx / d * f; A.vy -= dy / d * f; A.vz -= dz / d * f;
+            B.vx += dx / d * f; B.vy += dy / d * f; B.vz += dz / d * f;
+          }
+        }
+        edges.forEach(function (e) {
+          if (e.truth) return; // 真理虚线不参与力学，避免内核被拉变形
+          const dx = e.b.x - e.a.x, dy = e.b.y - e.a.y, dz = e.b.z - e.a.z;
+          const d = Math.sqrt(dx * dx + dy * dy + dz * dz) || 1;
+          const f = (d - e.len) * e.k;
+          e.a.vx += dx / d * f; e.a.vy += dy / d * f; e.a.vz += dz / d * f;
+          e.b.vx -= dx / d * f; e.b.vy -= dy / d * f; e.b.vz -= dz / d * f;
+        });
+      }
       nodes.forEach(function (n) {
         n.vx *= 0.85; n.vy *= 0.85; n.vz *= 0.85;
         n.x += n.vx * alpha; n.y += n.vy * alpha; n.z += n.vz * alpha;
-        // 投影回所属球壳
-        const d = Math.sqrt(n.x * n.x + n.y * n.y + n.z * n.z) || 1;
+        // 投影回所属球壳（球心随拉出状态移动）
+        const dxc = n.x - n.cx, dyc = n.y - n.cy, dzc = n.z - n.cz;
+        const d = Math.sqrt(dxc * dxc + dyc * dyc + dzc * dzc) || 1;
         const r = n.shell || R_OUT;
-        n.x = n.x / d * r; n.y = n.y / d * r; n.z = n.z / d * r;
+        n.x = n.cx + dxc / d * r; n.y = n.cy + dyc / d * r; n.z = n.cz + dzc / d * r;
       });
       alpha *= 0.985;
     }
@@ -564,8 +631,16 @@
         p.style.cssText = 'font-size:13px;color:#475569';
         p.textContent = '分支节点「' + nd.name + '」，连接度 ' + nd.deg + '。拖拽旋转球体可查看其下的知识点。';
         card.appendChild(p);
+        if (nd.type === 'root' && pull.hasOwnProperty(nd.subject)) {
+          const pb = document.createElement('button');
+          pb.className = 'btn'; pb.style.marginTop = '12px';
+          pb.textContent = pull[nd.subject] ? '↩ 收回这棵树' : '🌿 拉出整棵「' + nd.name + '」树单独查看';
+          pb.addEventListener('click', function () { setPull(nd.subject, !pull[nd.subject]); closeCard(); });
+          card.appendChild(pb);
+        }
         const close = document.createElement('button');
         close.className = 'btn secondary'; close.textContent = '关闭';
+        close.style.marginTop = '12px'; close.style.marginLeft = '8px';
         close.addEventListener('click', closeCard);
         card.appendChild(close);
       }
@@ -577,7 +652,7 @@
       return null;
     }
     // 测试钩子（自检脚本用，不影响交互）
-    T._last = { nodes: nodes, edges: edges, project: project, openCard: openCard };
+    T._last = { nodes: nodes, edges: edges, project: project, openCard: openCard, pull: pull, setPull: setPull };
 
     // ---- 绘制（深度排序） ----
     function drawSphereFrame() {
@@ -609,42 +684,72 @@
       ctx.stroke();
     }
 
+    let dashT = 0;
     function draw() {
       ctx.clearRect(0, 0, W, H);
       const hi = hover ? neighbors(hover) : null;
+      const pulledMode = anyPull();
+      dashT += 0.35;
       drawSphereFrame();
       // 边
       edges.forEach(function (e) {
         const pa = project(e.a), pb = project(e.b);
         const dim = hi && !(hi.has(e.a) && hi.has(e.b));
+        // 拉出模式：未拉出树内部边极淡；拉出树与外界的桥（依赖/跨学科/真理挂接）高亮流动
+        let fadeK = 1, bridge = false;
+        if (pulledMode) {
+          const aHot = e.a.kind === 'truth' || !!pull[e.a.subject];
+          const bHot = e.b.kind === 'truth' || !!pull[e.b.subject];
+          if (!aHot && !bHot) fadeK = 0.22;
+          if (e.truth) {
+            const other = e.a.kind === 'truth' ? e.b : e.a;
+            bridge = !!pull[other.subject]; // 真理挂接：只高亮通向被拉出树的
+          } else {
+            bridge = (aHot || bHot) && (aHot !== bHot || !!e.cross);
+          }
+        }
         if (e.truth) {
           const on = hover && (e.a === hover || e.b === hover);
-          ctx.strokeStyle = on ? 'rgba(234,179,8,.85)' : 'rgba(234,179,8,' + (dim ? 0.02 : 0.06) + ')';
-          ctx.lineWidth = on ? 1.4 : 0.7;
-          ctx.setLineDash([3, 6]);
+          ctx.strokeStyle = on ? 'rgba(234,179,8,.9)' : bridge ? 'rgba(234,179,8,.5)' : 'rgba(234,179,8,' + (dim ? 0.02 : 0.06 * fadeK) + ')';
+          ctx.lineWidth = (on || bridge) ? 1.4 : 0.7;
+          if (bridge) { ctx.setLineDash([4, 5]); ctx.lineDashOffset = -dashT; } else ctx.setLineDash([3, 6]);
         } else if (e.dep) {
           const litEdge = e.a.lit && e.b.lit;
-          ctx.strokeStyle = litEdge ? 'rgba(96,165,250,' + (dim ? 0.08 : 0.55) + ')' :
-            'rgba(96,165,250,' + (dim ? 0.04 : 0.22) + ')';
-          ctx.lineWidth = litEdge ? 1.6 : 1;
-          ctx.setLineDash([2, 4]);
+          if (bridge) {
+            ctx.strokeStyle = 'rgba(96,165,250,.95)'; ctx.lineWidth = 1.8;
+            ctx.setLineDash([3, 4]); ctx.lineDashOffset = -dashT;
+          } else {
+            ctx.strokeStyle = litEdge ? 'rgba(96,165,250,' + (dim ? 0.08 : 0.55 * fadeK) + ')' :
+              'rgba(96,165,250,' + (dim ? 0.04 : 0.22 * fadeK) + ')';
+            ctx.lineWidth = litEdge ? 1.6 : 1;
+            ctx.setLineDash([2, 4]);
+          }
+        } else if (e.cross) {
+          if (bridge) {
+            ctx.strokeStyle = 'rgba(245,158,11,.95)'; ctx.lineWidth = 1.8;
+            ctx.setLineDash([5, 5]); ctx.lineDashOffset = -dashT;
+          } else {
+            ctx.strokeStyle = 'rgba(245,158,11,' + (dim ? 0.06 : 0.45 * fadeK) + ')';
+            ctx.lineWidth = 1.4;
+            ctx.setLineDash([5, 5]);
+          }
         } else {
-          ctx.strokeStyle = e.cross ? 'rgba(245,158,11,' + (dim ? 0.06 : 0.45) + ')' :
-            'rgba(148,163,184,' + (dim ? 0.03 : 0.14) + ')';
-          ctx.lineWidth = e.cross ? 1.4 : 0.8;
-          ctx.setLineDash(e.cross ? [5, 5] : []);
+          ctx.strokeStyle = 'rgba(148,163,184,' + (dim ? 0.03 : 0.14 * fadeK) + ')';
+          ctx.lineWidth = 0.8;
+          ctx.setLineDash([]);
         }
         ctx.beginPath(); ctx.moveTo(pa[0], pa[1]); ctx.lineTo(pb[0], pb[1]); ctx.stroke();
       });
-      ctx.setLineDash([]);
+      ctx.setLineDash([]); ctx.lineDashOffset = 0;
       // 节点按深度排序（远→近）
       const sorted = nodes.map(function (n) { return [project(n), n]; })
         .sort(function (a, b) { return b[0][2] - a[0][2]; });
       sorted.forEach(function (pair) {
         const p = pair[0], n = pair[1];
         const dim = hi && !hi.has(n);
+        const pDim = pulledMode && n.kind !== 'truth' && !pull[n.subject];
         const depthFade = Math.max(0.3, Math.min(1, 1.25 - p[2] / 1700));
-        ctx.globalAlpha = (dim ? 0.12 : 1) * depthFade;
+        ctx.globalAlpha = (dim ? 0.12 : pDim ? 0.22 : 1) * depthFade;
         const rr = Math.max(1.5, n.r * p[3]);
         const glow = n.lit || n === hover || n.gate === 'avail' || n.kind === 'truth';
         if (glow) { ctx.shadowColor = n.lit ? '#f59e0b' : n.color; ctx.shadowBlur = n.kind === 'truth' ? 18 : 12; }
@@ -672,7 +777,7 @@
           ctx.lineWidth = n.gate === 'avail' ? 1.8 : 1;
           ctx.stroke();
         }
-        const showLabel = n.kind === 'truth' || n.type !== 'topic' || n.lit || n.gate === 'avail' || (hi && hi.has(n)) || n.deg >= 9 || zoom > 1.1;
+        const showLabel = n.kind === 'truth' || n.type !== 'topic' || n.lit || n.gate === 'avail' || (hi && hi.has(n)) || n.deg >= 9 || zoom > 1.1 || (pulledMode && !!pull[n.subject]);
         if (showLabel) {
           ctx.fillStyle = n.kind === 'truth' ? '#fde68a' : n.type === 'topic' ? '#cbd5e1' : '#fff';
           ctx.font = (n.kind === 'truth' ? 'bold 12px' : n.type === 'root' ? 'bold 14px' : '11px') + ' sans-serif';

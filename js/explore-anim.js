@@ -13,49 +13,65 @@
     return { c: c, ctx: ctx, w: w, h: h };
   }
 
-  /* 双摆混沌 */
+  /* 双摆混沌：两个初始仅差 0.001 rad 的双摆并排演示蝴蝶效应 */
   AN.pendulum = function (holder) {
     const V = mkCanvas(holder, 360, 300, true);
     const ctx = V.ctx;
-    let th1 = Math.PI / 2, th2 = Math.PI / 2 + 0.001, w1 = 0, w2 = 0;
-    const l1 = 80, l2 = 80, m1 = 10, m2 = 10, G = 0.4;
-    const trail = [];
-    function step() {
+    const l1 = 78, l2 = 78, m1 = 10, m2 = 10, G = 0.4;
+    function mkP(d) { return { th1: Math.PI / 2, th2: Math.PI / 2 + d, w1: 0, w2: 0, trail: [] }; }
+    const A = mkP(0), B = mkP(0.001);
+    function step(P) {
       for (let i = 0; i < 4; i++) {
         const dt = 0.1;
-        const num = -G * (2 * m1 + m2) * Math.sin(th1) - m2 * G * Math.sin(th1 - 2 * th2) - 2 * Math.sin(th1 - th2) * m2 * (w2 * w2 * l2 + w1 * w1 * l1 * Math.cos(th1 - th2));
-        const den = l1 * (2 * m1 + m2 - m2 * Math.cos(2 * th1 - 2 * th2));
+        const num = -G * (2 * m1 + m2) * Math.sin(P.th1) - m2 * G * Math.sin(P.th1 - 2 * P.th2) - 2 * Math.sin(P.th1 - P.th2) * m2 * (P.w2 * P.w2 * l2 + P.w1 * P.w1 * l1 * Math.cos(P.th1 - P.th2));
+        const den = l1 * (2 * m1 + m2 - m2 * Math.cos(2 * P.th1 - 2 * P.th2));
         const a1 = num / den;
-        const num2 = 2 * Math.sin(th1 - th2) * (w1 * w1 * l1 * (m1 + m2) + G * (m1 + m2) * Math.cos(th1) + w2 * w2 * l2 * m2 * Math.cos(th1 - th2));
-        const den2 = l2 * (2 * m1 + m2 - m2 * Math.cos(2 * th1 - 2 * th2));
+        const num2 = 2 * Math.sin(P.th1 - P.th2) * (P.w1 * P.w1 * l1 * (m1 + m2) + G * (m1 + m2) * Math.cos(P.th1) + P.w2 * P.w2 * l2 * m2 * Math.cos(P.th1 - P.th2));
+        const den2 = l2 * (2 * m1 + m2 - m2 * Math.cos(2 * P.th1 - 2 * P.th2));
         const a2 = num2 / den2;
-        w1 += a1 * dt; w2 += a2 * dt;
-        th1 += w1 * dt; th2 += w2 * dt;
+        P.w1 += a1 * dt; P.w2 += a2 * dt;
+        P.th1 += P.w1 * dt; P.th2 += P.w2 * dt;
       }
     }
+    function pos(P) {
+      const cx = V.w / 2, cy = 105;
+      const x1 = cx + l1 * Math.sin(P.th1), y1 = cy + l1 * Math.cos(P.th1);
+      return [cx, cy, x1, y1, x1 + l2 * Math.sin(P.th2), y1 + l2 * Math.cos(P.th2)];
+    }
+    function drawP(P, col, colA) {
+      const q = pos(P);
+      P.trail.push([q[4], q[5]]);
+      if (P.trail.length > 140) P.trail.shift();
+      for (let i = 1; i < P.trail.length; i++) {
+        ctx.strokeStyle = colA + (i / P.trail.length * 0.55).toFixed(2) + ')';
+        ctx.lineWidth = 1.2;
+        ctx.beginPath(); ctx.moveTo(P.trail[i - 1][0], P.trail[i - 1][1]); ctx.lineTo(P.trail[i][0], P.trail[i][1]); ctx.stroke();
+      }
+      ctx.strokeStyle = 'rgba(226,232,240,.85)'; ctx.lineWidth = 2;
+      ctx.beginPath(); ctx.moveTo(q[0], q[1]); ctx.lineTo(q[2], q[3]); ctx.lineTo(q[4], q[5]); ctx.stroke();
+      ctx.shadowColor = col; ctx.shadowBlur = 14;
+      ctx.fillStyle = col;
+      ctx.beginPath(); ctx.arc(q[2], q[3], 6.5, 0, Math.PI * 2); ctx.fill();
+      ctx.beginPath(); ctx.arc(q[4], q[5], 7, 0, Math.PI * 2); ctx.fill();
+      ctx.shadowBlur = 0;
+      return q;
+    }
     (function loop() {
-      step();
-      ctx.fillStyle = 'rgba(15,23,42,0.25)';
-      ctx.fillRect(0, 0, V.w, V.h);
-      const cx = V.w / 2, cy = 110;
-      const x1 = cx + l1 * Math.sin(th1), y1 = cy + l1 * Math.cos(th1);
-      const x2 = x1 + l2 * Math.sin(th2), y2 = y1 + l2 * Math.cos(th2);
-      trail.push([x2, y2]); if (trail.length > 160) trail.shift();
-      ctx.strokeStyle = '#38bdf8'; ctx.lineWidth = 2;
-      ctx.beginPath(); ctx.moveTo(cx, cy); ctx.lineTo(x1, y1); ctx.lineTo(x2, y2); ctx.stroke();
-      ctx.fillStyle = '#f8fafc';
-      ctx.beginPath(); ctx.arc(x1, y1, 7, 0, Math.PI * 2); ctx.fill();
-      ctx.fillStyle = '#fbbf24';
-      ctx.beginPath(); ctx.arc(x2, y2, 7, 0, Math.PI * 2); ctx.fill();
-      ctx.strokeStyle = 'rgba(251,191,36,.5)'; ctx.lineWidth = 1;
-      ctx.beginPath();
-      trail.forEach(function (p, i) { if (i === 0) ctx.moveTo(p[0], p[1]); else ctx.lineTo(p[0], p[1]); });
-      ctx.stroke();
+      step(A); step(B);
+      ctx.fillStyle = 'rgba(15,23,42,.3)'; ctx.fillRect(0, 0, V.w, V.h);
+      const qa = drawP(A, '#38bdf8', 'rgba(56,189,248,');
+      const qb = drawP(B, '#fb923c', 'rgba(251,146,60,');
+      const sep = Math.hypot(qa[4] - qb[4], qa[5] - qb[5]);
+      ctx.fillStyle = '#0f172a'; ctx.fillRect(0, V.h - 22, V.w, 22);
+      ctx.fillStyle = sep > 50 ? '#fbbf24' : '#94a3b8'; ctx.font = '11px sans-serif';
+      ctx.fillText('两摆初始仅差 0.001 rad · 末端相距 ' + sep.toFixed(1) + ' px' + (sep > 50 ? ' —— 已彻底分道扬镳' : ''), 8, V.h - 8);
+      ctx.fillStyle = '#38bdf8'; ctx.fillText('● 摆 A', 8, 16);
+      ctx.fillStyle = '#fb923c'; ctx.fillText('● 摆 B（初始 +0.001）', 62, 16);
       window.requestAnimationFrame(loop);
     })();
   };
 
-  /* 洛伦兹吸引子 */
+  /* 洛伦兹吸引子：缓慢旋转的 3D 投影，颜色编码瞬时速度 */
   AN.lorenz = function (holder) {
     const V = mkCanvas(holder, 360, 300, true);
     const ctx = V.ctx;
@@ -66,22 +82,38 @@
       const dt = 0.004;
       const dx = s * (y - x), dy = x * (r - z) - y, dz = x * y - b * z;
       x += dx * dt; y += dy * dt; z += dz * dt;
-      pts.push([x, z]);
+      pts.push([x, y, z, Math.sqrt(dx * dx + dy * dy + dz * dz)]);
     }
     for (let i = 0; i < 900; i++) step(); // 预跑：首帧即见蝴蝶形，不再从空线开始
+    let rot = 0;
     (function loop() {
       for (let i = 0; i < 30; i++) step();
-      while (pts.length > 2600) pts.shift();
+      while (pts.length > 2000) pts.shift();
+      rot += 0.004;
       ctx.fillStyle = '#0f172a'; ctx.fillRect(0, 0, V.w, V.h);
-      ctx.beginPath();
-      for (let i = 0; i < pts.length; i++) {
-        const px = V.w / 2 + pts[i][0] * 6.5, py = V.h - 20 - pts[i][1] * 5.4;
-        if (i === 0) ctx.moveTo(px, py); else ctx.lineTo(px, py);
+      const ca = Math.cos(rot), sa = Math.sin(rot);
+      for (let i = 1; i < pts.length; i++) {
+        const p0 = pts[i - 1], p1 = pts[i];
+        const xr0 = p0[0] * ca - p0[1] * sa, xr1 = p1[0] * ca - p1[1] * sa;
+        const sp = Math.min(1, p1[3] / 130);          // 瞬时速度 0→1
+        const hue = 215 - sp * 175;                    // 慢=蓝，快=金红
+        const age = i / pts.length;                    // 旧轨迹淡
+        ctx.strokeStyle = 'hsla(' + hue.toFixed(0) + ',88%,' + (48 + sp * 18).toFixed(0) + '%,' + (0.12 + 0.55 * age).toFixed(2) + ')';
+        ctx.lineWidth = 0.9;
+        ctx.beginPath();
+        ctx.moveTo(V.w / 2 + xr0 * 6.5, V.h - 26 - p0[2] * 5.4);
+        ctx.lineTo(V.w / 2 + xr1 * 6.5, V.h - 26 - p1[2] * 5.4);
+        ctx.stroke();
       }
-      ctx.strokeStyle = 'rgba(56,189,248,.55)'; ctx.lineWidth = 0.7; ctx.stroke();
       const lp = pts[pts.length - 1];
-      ctx.fillStyle = '#fbbf24';
-      ctx.beginPath(); ctx.arc(V.w / 2 + lp[0] * 6.5, V.h - 20 - lp[1] * 5.4, 3, 0, Math.PI * 2); ctx.fill();
+      const hx = V.w / 2 + (lp[0] * ca - lp[1] * sa) * 6.5, hy = V.h - 26 - lp[2] * 5.4;
+      ctx.shadowColor = '#fbbf24'; ctx.shadowBlur = 16;
+      ctx.fillStyle = '#fde68a';
+      ctx.beginPath(); ctx.arc(hx, hy, 3.5, 0, Math.PI * 2); ctx.fill();
+      ctx.shadowBlur = 0;
+      ctx.fillStyle = '#0f172a'; ctx.fillRect(0, V.h - 22, V.w, 22);
+      ctx.fillStyle = '#94a3b8'; ctx.font = '10.5px sans-serif';
+      ctx.fillText('颜色 = 瞬时速度（蓝慢 → 金快）· 绕 z 轴缓慢旋转的 3D 投影', 8, V.h - 8);
       window.requestAnimationFrame(loop);
     })();
   };
@@ -132,33 +164,42 @@
     ctx.fillText('r: 2.5 → 4.0 | 从周期到混沌', 10, V.h - 8);
   };
 
-  /* 随机游走 */
+  /* 随机游走：粒子云扩散 + 理论 √t 虚线圆实时对照 */
   AN.walk = function (holder) {
     const V = mkCanvas(holder, 360, 280, true);
     const ctx = V.ctx;
-    const N = 260, particles = [];
+    const cx = V.w / 2, cy = (V.h - 26) / 2;
+    const N = 160, particles = [];
     const colors = ['#38bdf8', '#fbbf24', '#f87171', '#4ade80', '#c084fc'];
     for (let i = 0; i < N; i++) {
-      particles.push({ x: V.w / 2, y: V.h / 2, c: colors[i % colors.length] });
+      particles.push({ x: cx, y: cy, c: colors[i % colors.length] });
     }
     let t = 0;
     (function loop() {
-      ctx.fillStyle = 'rgba(15,23,42,.14)'; ctx.fillRect(0, 0, V.w, V.h);
+      ctx.fillStyle = 'rgba(15,23,42,.22)'; ctx.fillRect(0, 0, V.w, V.h);
       particles.forEach(function (p) {
         p.x += (Math.random() - 0.5) * 5;
         p.y += (Math.random() - 0.5) * 5;
-        ctx.fillStyle = p.c; ctx.globalAlpha = 0.8;
-        ctx.fillRect(p.x, p.y, 2, 2);
+        ctx.fillStyle = p.c; ctx.globalAlpha = 0.85;
+        ctx.fillRect(p.x - 1, p.y - 1, 2.5, 2.5);
       });
       ctx.globalAlpha = 1;
       t++;
-      if (t % 60 === 0) {
-        let avg = 0;
-        particles.forEach(function (p) { avg += Math.hypot(p.x - V.w / 2, p.y - V.h / 2); });
-        avg /= N;
-        ctx.fillStyle = '#e2e8f0'; ctx.font = '11px sans-serif';
-        ctx.fillText('平均位移 ≈ √t: ' + avg.toFixed(1) + ' px（t=' + t + '）', 10, V.h - 8);
-      }
+      // 理论包络：rms 半径 = 2.04·√t（每步 x/y 各 ±2.5px 均匀随机）
+      const rT = 2.04 * Math.sqrt(t);
+      let avg = 0;
+      particles.forEach(function (p) { avg += Math.hypot(p.x - cx, p.y - cy); });
+      avg /= N;
+      // 出生点十字
+      ctx.strokeStyle = 'rgba(226,232,240,.4)'; ctx.lineWidth = 1;
+      ctx.beginPath(); ctx.moveTo(cx - 5, cy); ctx.lineTo(cx + 5, cy); ctx.moveTo(cx, cy - 5); ctx.lineTo(cx, cy + 5); ctx.stroke();
+      // 理论 √t 圆（金色虚线）
+      ctx.strokeStyle = 'rgba(251,191,36,.75)'; ctx.setLineDash([4, 4]); ctx.lineWidth = 1.4;
+      ctx.beginPath(); ctx.arc(cx, cy, rT, 0, Math.PI * 2); ctx.stroke();
+      ctx.setLineDash([]);
+      ctx.fillStyle = '#0f172a'; ctx.fillRect(0, V.h - 22, V.w, 22);
+      ctx.fillStyle = '#e2e8f0'; ctx.font = '11px sans-serif';
+      ctx.fillText('t=' + t + '  实测平均位移 ' + avg.toFixed(1) + ' px ≈ 理论 √t 半径 ' + rT.toFixed(1) + ' px（金色虚线圆）', 8, V.h - 8);
       window.requestAnimationFrame(loop);
     })();
   };
