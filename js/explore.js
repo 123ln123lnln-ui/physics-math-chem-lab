@@ -134,12 +134,13 @@
   };
 
   E.render = function (root) {
+    E.ensureExtra(); // 注册补位动画引擎（orbitalDemo 等），否则对应主题显示"建设中"
     const h1 = document.createElement('h1');
     h1.textContent = '资料篇 · 自由探索';
     root.appendChild(h1);
 
-    // 精选主题：首批 60 + 第二批 30，每个都配专属原理动画
-    const data = (window.ExploreData || E.topics).concat(window.ExploreData2 || []);
+    // 精选主题：首批 60 + 第二批 30 + 第三批 48（科技树），每个都配专属原理动画
+    const data = (window.ExploreData || E.topics).concat(window.ExploreData2 || []).concat(window.ExploreData3 || []);
     const sub = document.createElement('div');
     sub.className = 'graph-legend';
     sub.textContent = '共 ' + data.length + ' 个精选探索主题，每个都配专属原理动画（不为凑数做参数变体）。内容超出课标、面向兴趣与高阶思维，标注"探索级"，不作为考点。';

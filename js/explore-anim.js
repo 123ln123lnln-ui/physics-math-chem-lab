@@ -62,13 +62,15 @@
     let x = 0.1, y = 0, z = 0;
     const s = 10, r = 28, b = 8 / 3;
     const pts = [];
+    function step() {
+      const dt = 0.004;
+      const dx = s * (y - x), dy = x * (r - z) - y, dz = x * y - b * z;
+      x += dx * dt; y += dy * dt; z += dz * dt;
+      pts.push([x, z]);
+    }
+    for (let i = 0; i < 900; i++) step(); // 预跑：首帧即见蝴蝶形，不再从空线开始
     (function loop() {
-      for (let i = 0; i < 30; i++) {
-        const dt = 0.004;
-        const dx = s * (y - x), dy = x * (r - z) - y, dz = x * y - b * z;
-        x += dx * dt; y += dy * dt; z += dz * dt;
-        pts.push([x, z]);
-      }
+      for (let i = 0; i < 30; i++) step();
       while (pts.length > 2600) pts.shift();
       ctx.fillStyle = '#0f172a'; ctx.fillRect(0, 0, V.w, V.h);
       ctx.beginPath();

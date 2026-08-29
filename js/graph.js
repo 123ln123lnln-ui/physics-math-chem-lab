@@ -1,80 +1,12 @@
-/* graph.js — 知识图谱 · 真 3D 星图
- * 布局：四个圆盘横向排布（数学/物理/化学/探索），每盘内同心环 = 层级。
- * Z 轴 = 连接度（节点真实边数，知识关联越密抬得越高）——取代不可靠的"考点频率"。
- * 交互：拖拽 = 轨道旋转（绕 Y/X 轴）· 滚轮 = 缩放 · 悬停高亮 · 点击弹知识小卡片。
- * 数据：注册表 243 + 探索 60 = 300+ 节点，含跨学科连线。
+/* graph.js — 知识图谱 · 星图 3.0：真理网状球
+ * 布局：一个可拖拽旋转的球体。外壳(R=430)承载四学科+探索的全部知识点与分支层；
+ *       内核(R=160)悬浮 15 个"科学真理"节点（能量守恒、熵、对称、涌现……）。
+ *       每个知识点/探索主题双向挂接 1~3 条真理（金色虚线）；前置依赖(蓝色虚线)与跨学科关联(金色实线)叠在同一球面。
+ * 交互：拖拽 = 轨道旋转 · 滚轮 = 缩放 · 悬停高亮关联子网 · 点击弹知识卡片（真理卡片可跳回全部关联知识点）。
+ * 力学：3D 力导向（同学科斥力 + 边弹簧），每帧把节点投影回所属球壳，布局稳定后静止。
  */
 (function () {
   const T = {};
-
-  T.trees = [
-    {
-      subject: 'math', title: '数学之树', color: '#2563eb',
-      branches: [
-        { name: '数与式（初中）', nodes: [
-          { name: '实数' }, { name: '整式与因式分解' }, { name: '分式' }, { name: '二次根式' } ] },
-        { name: '方程与不等式（初中）', nodes: [
-          { name: '一元一次方程' }, { name: '二元一次方程组' }, { name: '一元二次方程', sub: '与二次函数联动' }, { name: '不等式与不等式组' } ] },
-        { name: '函数（初高中）', nodes: [
-          { name: '一次函数', module: 'linear-function' }, { name: '反比例函数' },
-          { name: '二次函数', module: 'quadratic-function' }, { name: '幂/指/对函数（高中）' },
-          { name: '三角函数', module: 'trig-unit-circle' }, { name: '导数与切线', module: 'derivative-tangent' } ] },
-        { name: '几何（初中）', nodes: [
-          { name: '勾股定理', module: 'pythagoras' }, { name: '全等三角形' }, { name: '相似三角形' },
-          { name: '四边形' }, { name: '圆' }, { name: '图形变换（平移/旋转/对称）' } ] },
-        { name: '代数与几何（高中）', nodes: [
-          { name: '集合与常用逻辑用语' }, { name: '数列（等差/等比）' }, { name: '平面向量' },
-          { name: '直线与圆' }, { name: '圆锥曲线（椭圆）', module: 'ellipse' },
-          { name: '立体几何初步' }, { name: '概率与统计' }, { name: '复数' } ] }
-      ]
-    },
-    {
-      subject: 'physics', title: '物理之树', color: '#dc2626',
-      branches: [
-        { name: '声光热（初中）', nodes: [
-          { name: '声现象' }, { name: '光的直线传播与反射' }, { name: '光的折射' },
-          { name: '凸透镜成像', module: 'lens-imaging' }, { name: '物态变化' } ] },
-        { name: '力学（初中）', nodes: [
-          { name: '机械运动与速度' }, { name: '力与二力平衡' }, { name: '压强' },
-          { name: '浮力', module: 'buoyancy' }, { name: '功、功率与机械能' },
-          { name: '杠杆与滑轮', module: 'lever-balance' } ] },
-        { name: '电与磁（初中）', nodes: [
-          { name: '电流、电压、电阻' }, { name: '欧姆定律', module: 'ohms-law' },
-          { name: '电功与电功率' }, { name: '电与磁（电磁现象）' } ] },
-        { name: '力学（高中）', nodes: [
-          { name: '运动学（自由落体/上抛）', module: 'free-fall' },
-          { name: '抛体运动', module: 'projectile' }, { name: '牛顿运动定律' },
-          { name: '万有引力与航天' }, { name: '机械能守恒' }, { name: '动量守恒' } ] },
-        { name: '振动波动与电磁学（高中）', nodes: [
-          { name: '简谐运动（弹簧振子）', module: 'shm-spring' }, { name: '机械波' },
-          { name: '静电场与恒定电流' }, { name: '磁场' }, { name: '电磁感应与交变电流' },
-          { name: '几何光学与波动光学' }, { name: '原子物理初步' } ] }
-      ]
-    },
-    {
-      subject: 'chemistry', title: '化学之树', color: '#059669',
-      branches: [
-        { name: '物质与变化（初中）', nodes: [
-          { name: '物质的变化与性质' }, { name: '空气与氧气' }, { name: '水与溶液' },
-          { name: '分子、原子、离子' }, { name: '化学方程式与配平', module: 'equation-balance' },
-          { name: '碳和碳的氧化物' }, { name: '燃烧与灭火' } ] },
-        { name: '金属与酸碱盐（初中）', nodes: [
-          { name: '金属与置换反应', module: 'metal-displacement' },
-          { name: '酸、碱、盐与中和反应' }, { name: '溶液与溶解度' } ] },
-        { name: '基本概念与理论（高中）', nodes: [
-          { name: '物质的量（摩尔）' }, { name: '离子反应' }, { name: '氧化还原反应' },
-          { name: '元素周期表与周期律', module: 'periodic-table' },
-          { name: '化学键与分子结构', module: 'water-molecule' } ] },
-        { name: '反应原理与溶液（高中）', nodes: [
-          { name: '化学反应与能量' }, { name: '反应速率与化学平衡' },
-          { name: '水溶液中的离子平衡' }, { name: '酸碱中和滴定', module: 'titration' },
-          { name: '电化学（原电池/电解池）' } ] },
-        { name: '元素与有机（高中）', nodes: [
-          { name: '金属及其化合物' }, { name: '非金属及其化合物' },
-          { name: '有机化学基础' }, { name: '物质结构与性质' } ] }
-      ]
-    }
-  ];
 
   T.crossLinks = [
     { from: '一次函数（数学）', to: '匀速直线运动（物理）', text: '函数的图像语言就是运动学的位移-时间图' },
@@ -90,29 +22,59 @@
   T.countLit = function () {
     if (window.Reg && Reg.count() > 0) {
       let lit = 0;
-      const total = Reg.count() + (window.ExploreData ? ExploreData.length : 0);
+      const total = Reg.count() + (window.ExploreData ? ExploreData.length : 0) +
+        (window.ExploreData2 ? ExploreData2.length : 0) + (window.ExploreData3 ? ExploreData3.length : 0);
       for (const id in Reg.items) if (window.Progress && Progress.isLit('kb-' + id)) lit++;
       return { lit: lit, total: total, built: Reg.count() };
     }
-    let lit = 0, total = 0, built = 0;
-    T.trees.forEach(tree => tree.branches.forEach(b => b.nodes.forEach(n => {
-      total++;
-      if (n.module) { built++; if (Progress.isLit(n.module)) lit++; }
-    })));
-    return { lit: lit, total: total, built: built };
+    return { lit: 0, total: 0, built: 0 };
   };
 
-  /* ===== 真 3D 渲染 ===== */
+  const SEC_RULES = {
+    '数与式': function (t) { return /式|因式|分式|根式/.test(t) ? '式与运算' : '数与运算'; },
+    '方程与不等式': function (t) { return /不等式/.test(t) ? '不等式' : '方程'; },
+    '函数': function (t) { return /函数/.test(t) ? '函数主线' : '坐标与概念'; },
+    '图形与几何': function (t) { return /圆|角|三角形|四边形|多边形/.test(t) ? '图形性质' : '变换与度量'; },
+    '统计与概率': function (t) { return /概率/.test(t) ? '概率' : '统计'; },
+    '三角与向量': function (t) { return /向量/.test(t) ? '平面向量' : '三角函数'; },
+    '解析几何': function (t) { return /直线|圆|距离/.test(t) ? '直线与圆' : '圆锥曲线'; },
+    '概率与统计': function (t) { return /排列|二项|期望|方差/.test(t) ? '计数与分布' : '概率模型'; },
+    '声学': function (t) { return /声源|音调|响度/.test(t) ? '声音特性' : '传播与应用'; },
+    '光学': function (t) { return /反射|折射|透镜|色散/.test(t) ? '光的传播规律' : '成像与应用'; },
+    '热学': function (t) { return /热|内能|温度|比热/.test(t) ? '热与内能' : '物态变化'; },
+    '力学': function (t) { return /压强|浮力|密度/.test(t) ? '压强与浮力' : '运动与力'; },
+    '电学': function (t) { return /功率|电功|焦耳|电阻|欧姆/.test(t) ? '电功与电热' : '电路基础'; },
+    '电磁学': function (t) { return /磁|电磁/.test(t) ? '磁与电磁' : '信息与波'; },
+    '运动学': function (t) { return /图像|合成/.test(t) ? '图像与方法' : '基本公式'; },
+    '牛顿定律': function (t) { return /合成|斜面/.test(t) ? '力的处理' : '定律应用'; },
+    '曲线运动': function (t) { return /卫星|万有引力|引力/.test(t) ? '万有引力' : '曲线运动'; },
+    '能量与动量': function (t) { return /动量/.test(t) ? '动量' : '能量'; },
+    '振动与波': function (t) { return /波|干涉|衍射|多普勒|声/.test(t) ? '波动' : '振动'; },
+    '近代物理': function (t) { return /光电|原子|能级/.test(t) ? '量子与原子' : '核物理'; },
+    '物质构成与变化': function (t) { return /变化|守恒|实验操作/.test(t) ? '变化与守恒' : '构成与表示'; },
+    '碳与燃烧': function (t) { return /燃烧|燃料/.test(t) ? '燃烧与能源' : '碳的氧化物'; },
+    '水与溶液': function (t) { return /溶液|溶解/.test(t) ? '溶液' : '水'; },
+    '金属': function (t) { return /酸|置换/.test(t) ? '金属的化学性质' : '金属材料'; },
+    '酸碱盐': function (t) { return /酸$|碱$|中和|指示剂|pH/.test(t) ? '酸碱与中和' : '盐与化肥'; },
+    '基本概念': function (t) { return /离子|氧化还原|分散系|共存|NA/.test(t) ? '离子与氧化还原' : '化学计量'; },
+    '元素周期律': function (t) { return /原子结构|核素/.test(t) ? '原子结构' : '周期律'; },
+    '结构': function (t) { return /晶体/.test(t) ? '晶体' : '化学键与构型'; },
+    '反应原理': function (t) { return /平衡|速率|水解|常数/.test(t) ? '速率与平衡' : '电化学与热'; },
+    '元素化合物': function (t) { return /钠|铝|铁/.test(t) ? '金属元素' : '非金属元素'; },
+    '有机化学': function (t) { return /烃|苯/.test(t) ? '烃与芳香烃' : '烃的衍生物与高分子'; },
+    '实验与计算': function (t) { return /分离|制备|设计|滴定/.test(t) ? '实验方案' : '定量计算'; }
+  };
+
   T.render = function (root) {
     root.className = 'graph-page';
     const h1 = document.createElement('h1');
-    h1.textContent = '知识图谱 · 3D 关联星图';
+    h1.textContent = '知识图谱 · 真理网状球';
     root.appendChild(h1);
 
     const stat = T.countLit();
     const legend = document.createElement('div');
     legend.className = 'graph-legend';
-    legend.textContent = '拖拽旋转 · 滚轮缩放 · 悬停高亮关联 · 点击弹知识小卡片。高度(Z轴) = 连接度：一个知识与越多知识相连，站得越高。四个圆盘：数学/物理/化学/探索，金色虚线 = 跨学科关联。★金=已点亮，进度 ' +
+    legend.textContent = '拖拽旋转 · 滚轮缩放 · 悬停高亮关联子网 · 点击弹卡片。外壳 = 四学科+探索全部知识，内核 15 颗大节点 = 贯穿一切知识的科学真理（金色虚线双向挂接）；蓝色虚线 = 前置依赖，金色实线 = 跨学科关联。★金=已点亮，进度 ' +
       stat.lit + ' / ' + stat.total + '。';
     root.appendChild(legend);
 
@@ -140,20 +102,33 @@
     const ctx = canvas.getContext('2d');
     ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
 
-    // ---- 构建节点 ----
-    const nodes = [], edges = [];
-    const centers = {
-      math: [-1050, 0], physics: [-350, 0], chemistry: [350, 0], explore: [1050, 0]
+    /* ---- 球面布局参数 ---- */
+    const R_OUT = 430, R_TRUTH = 165;
+    // 学科经度带中心（弧度）与半宽
+    const SECTORS = {
+      math: { phi: -Math.PI * 0.75, color: '#2563eb', label: '数学' },
+      physics: { phi: -Math.PI * 0.25, color: '#dc2626', label: '物理' },
+      chemistry: { phi: Math.PI * 0.25, color: '#059669', label: '化学' },
+      explore: { phi: Math.PI * 0.75, color: '#f59e0b', label: '探索' }
     };
-    const ringR = { 1: 0, 2: 105, 3: 195, 4: 275, 5: 345 };
+    const nodes = [], edges = [];
+
+    function sph(phi, theta, r) {
+      return [r * Math.cos(theta) * Math.cos(phi), r * Math.sin(theta), r * Math.cos(theta) * Math.sin(phi)];
+    }
     function addNode(n) {
-      const c = centers[n.subject] || [0, 0];
-      const rr = ringR[n.level || 3] || 180;
-      const a = Math.random() * Math.PI * 2;
-      n.x = c[0] + Math.cos(a) * rr * (0.7 + Math.random() * 0.4);
-      n.y = Math.sin(a) * rr * (0.7 + Math.random() * 0.4);
-      n.z = 0; // 稍后由连接度决定
-      n.vx = 0; n.vy = 0;
+      const sec = SECTORS[n.subject] || SECTORS.math;
+      const lvl = n.level || 5;
+      // 层级决定纬度带：主干靠近两极区外圈秩序，知识点铺满热带
+      const latBand = { 1: 0, 2: 0.6, 3: 0.45, 4: 0.3, 5: 0 }[lvl] || 0;
+      const phi = sec.phi + (Math.random() - 0.5) * 1.15;
+      const theta = lvl === 1 ? 0.95 * (n.subject === 'explore' ? -1 : 1) * 0 :
+        (Math.random() - 0.5) * 2 * (0.28 + latBand) + (lvl <= 2 ? 0 : (Math.random() - 0.5) * 0.3);
+      const r = n.kind === 'truth' ? R_TRUTH : R_OUT;
+      const p = sph(phi, theta, r);
+      n.x = p[0]; n.y = p[1]; n.z = p[2];
+      n.shell = r;
+      n.vx = 0; n.vy = 0; n.vz = 0;
       n.deg = 0;
       nodes.push(n);
       return n;
@@ -161,54 +136,20 @@
     const litKey = function (n) { return n.kind === 'kb' ? 'kb-' + n.kid : (n.module || null); };
     const isLitNode = function (n) { const k = litKey(n); return !!(k && window.Progress && Progress.isLit(k)); };
 
-    const SEC_RULES = {
-      '数与式': function (t) { return /式|因式|分式|根式/.test(t) ? '式与运算' : '数与运算'; },
-      '方程与不等式': function (t) { return /不等式/.test(t) ? '不等式' : '方程'; },
-      '函数': function (t) { return /函数/.test(t) ? '函数主线' : '坐标与概念'; },
-      '图形与几何': function (t) { return /圆|角|三角形|四边形|多边形/.test(t) ? '图形性质' : '变换与度量'; },
-      '统计与概率': function (t) { return /概率/.test(t) ? '概率' : '统计'; },
-      '三角与向量': function (t) { return /向量/.test(t) ? '平面向量' : '三角函数'; },
-      '解析几何': function (t) { return /直线|圆|距离/.test(t) ? '直线与圆' : '圆锥曲线'; },
-      '概率与统计': function (t) { return /排列|二项|期望|方差/.test(t) ? '计数与分布' : '概率模型'; },
-      '声学': function (t) { return /声源|音调|响度/.test(t) ? '声音特性' : '传播与应用'; },
-      '光学': function (t) { return /反射|折射|透镜|色散/.test(t) ? '光的传播规律' : '成像与应用'; },
-      '热学': function (t) { return /热|内能|温度|比热/.test(t) ? '热与内能' : '物态变化'; },
-      '力学': function (t) { return /压强|浮力|密度/.test(t) ? '压强与浮力' : '运动与力'; },
-      '电学': function (t) { return /功率|电功|焦耳|电阻|欧姆/.test(t) ? '电功与电热' : '电路基础'; },
-      '电磁学': function (t) { return /磁|电磁/.test(t) ? '磁与电磁' : '信息与波'; },
-      '运动学': function (t) { return /图像|合成/.test(t) ? '图像与方法' : '基本公式'; },
-      '牛顿定律': function (t) { return /合成|斜面/.test(t) ? '力的处理' : '定律应用'; },
-      '曲线运动': function (t) { return /卫星|万有引力|引力/.test(t) ? '万有引力' : '曲线运动'; },
-      '能量与动量': function (t) { return /动量/.test(t) ? '动量' : '能量'; },
-      '振动与波': function (t) { return /波|干涉|衍射|多普勒|声/.test(t) ? '波动' : '振动'; },
-      '近代物理': function (t) { return /光电|原子|能级/.test(t) ? '量子与原子' : '核物理'; },
-      '物质构成与变化': function (t) { return /变化|守恒|实验操作/.test(t) ? '变化与守恒' : '构成与表示'; },
-      '碳与燃烧': function (t) { return /燃烧|燃料/.test(t) ? '燃烧与能源' : '碳的氧化物'; },
-      '水与溶液': function (t) { return /溶液|溶解/.test(t) ? '溶液' : '水'; },
-      '金属': function (t) { return /酸|置换/.test(t) ? '金属的化学性质' : '金属材料'; },
-      '酸碱盐': function (t) { return /酸$|碱$|中和|指示剂|pH/.test(t) ? '酸碱与中和' : '盐与化肥'; },
-      '基本概念': function (t) { return /离子|氧化还原|分散系|共存|NA/.test(t) ? '离子与氧化还原' : '化学计量'; },
-      '元素周期律': function (t) { return /原子结构|核素/.test(t) ? '原子结构' : '周期律'; },
-      '结构': function (t) { return /晶体/.test(t) ? '晶体' : '化学键与构型'; },
-      '反应原理': function (t) { return /平衡|速率|水解|常数/.test(t) ? '速率与平衡' : '电化学与热'; },
-      '元素化合物': function (t) { return /钠|铝|铁/.test(t) ? '金属元素' : '非金属元素'; },
-      '有机化学': function (t) { return /烃|苯/.test(t) ? '烃与芳香烃' : '烃的衍生物与高分子'; },
-      '实验与计算': function (t) { return /分离|制备|设计|滴定/.test(t) ? '实验方案' : '定量计算'; }
-    };
-
     if (window.Reg && Reg.count() > 0) {
-      [['math', '数学之树', '#2563eb'], ['physics', '物理之树', '#dc2626'], ['chemistry', '化学之树', '#059669']].forEach(function (s) {
-        const rootHub = addNode({ name: s[1], type: 'root', subject: s[0], r: 15, color: s[2], kind: 'none', level: 1 });
-        ['初中', '高中'].forEach(function (stage) {
+      [['math', '数学', '#2563eb'], ['physics', '物理', '#dc2626'], ['chemistry', '化学', '#059669']].forEach(function (s) {
+        const rootHub = addNode({ name: s[1], type: 'root', subject: s[0], r: 14, color: s[2], kind: 'none', level: 1 });
+        ['初中', '高中'].forEach(function (stage, si) {
           const list = Reg.list(s[0], stage);
           if (!list.length) return;
-          const stageHub = addNode({ name: stage, type: 'hub', subject: s[0], r: 9, color: s[2], kind: 'none', level: 2 });
-          edges.push({ a: rootHub, b: stageHub, len: 110, k: 0.02, cross: false });
+          const stageHub = addNode({ name: stage, type: 'hub', subject: s[0], r: 8, color: s[2], kind: 'none', level: 2 });
+          stageHub.y = (si === 0 ? -1 : 1) * R_OUT * 0.55; // 初中偏北半球、高中偏南半球
+          edges.push({ a: rootHub, b: stageHub, len: 130, k: 0.03, cross: false });
           const branches = {};
           list.forEach(function (it) { branches[it.branch] = true; });
           Object.keys(branches).forEach(function (br) {
-            const brHub = addNode({ name: br, type: 'hub', subject: s[0], r: 6.5, color: s[2], kind: 'none', level: 3 });
-            edges.push({ a: stageHub, b: brHub, len: 80, k: 0.025, cross: false });
+            const brHub = addNode({ name: br, type: 'hub', subject: s[0], r: 6, color: s[2], kind: 'none', level: 3 });
+            edges.push({ a: stageHub, b: brHub, len: 95, k: 0.03, cross: false });
             const rule = SEC_RULES[br];
             const items = list.filter(function (it) { return it.branch === br; });
             const secs = {};
@@ -221,28 +162,59 @@
             secNames.forEach(function (sn) {
               let secHub = brHub;
               if (secNames.length >= 2) {
-                secHub = addNode({ name: sn, type: 'hub', subject: s[0], r: 5, color: s[2], kind: 'none', level: 4 });
-                edges.push({ a: brHub, b: secHub, len: 55, k: 0.03, cross: false });
+                secHub = addNode({ name: sn, type: 'hub', subject: s[0], r: 4.5, color: s[2], kind: 'none', level: 4 });
+                edges.push({ a: brHub, b: secHub, len: 60, k: 0.035, cross: false });
               }
               secs[sn].forEach(function (it) {
                 const nd = addNode({ name: it.title, type: 'topic', subject: s[0], r: 4, color: s[2], kind: 'kb', kid: it.id, lit: false, level: 5 });
-                edges.push({ a: secHub, b: nd, len: 30, k: 0.055, cross: false });
+                edges.push({ a: secHub, b: nd, len: 34, k: 0.06, cross: false });
               });
             });
           });
         });
       });
-      if (window.ExploreData) {
-        const eRoot = addNode({ name: '探索之树', type: 'root', subject: 'explore', r: 15, color: '#f59e0b', kind: 'none', level: 1 });
+      // 探索：按分类挂在探索经度带
+      const expAll = (window.ExploreData || []).concat(window.ExploreData2 || []).concat(window.ExploreData3 || []);
+      if (expAll.length) {
+        const eRoot = addNode({ name: '探索', type: 'root', subject: 'explore', r: 14, color: '#f59e0b', kind: 'none', level: 1 });
         const cats = {};
-        ExploreData.concat(window.ExploreData2 || []).forEach(function (d) { const c = d.cat || '交叉'; cats[c] = cats[c] || []; cats[c].push(d); });
+        expAll.forEach(function (d) { const c = d.cat || '交叉'; cats[c] = cats[c] || []; cats[c].push(d); });
         Object.keys(cats).forEach(function (c) {
-          const cHub = addNode({ name: c, type: 'hub', subject: 'explore', r: 6, color: '#f59e0b', kind: 'none', level: 2 });
-          edges.push({ a: eRoot, b: cHub, len: 100, k: 0.025, cross: false });
+          const cHub = addNode({ name: c, type: 'hub', subject: 'explore', r: 5.5, color: '#f59e0b', kind: 'none', level: 2 });
+          edges.push({ a: eRoot, b: cHub, len: 110, k: 0.03, cross: false });
           cats[c].forEach(function (d) {
             const nd = addNode({ name: d.title, type: 'topic', subject: 'explore', r: 3.5, color: '#f59e0b', kind: 'exp', lit: false, level: 3 });
-            edges.push({ a: cHub, b: nd, len: 42, k: 0.04, cross: false });
+            edges.push({ a: cHub, b: nd, len: 46, k: 0.045, cross: false });
           });
+        });
+      }
+      // 真理内核
+      const truthNodes = {};
+      if (window.Truths) {
+        Truths.defs.forEach(function (td, i) {
+          const golden = Math.PI * (3 - Math.sqrt(5));
+          const y = 1 - (i / Math.max(1, Truths.defs.length - 1)) * 2;
+          const rad = Math.sqrt(Math.max(0, 1 - y * y));
+          const th = golden * i;
+          const nd = addNode({ name: td.name, type: 'truth', subject: 'truth', r: 9, color: '#eab308', kind: 'truth', truthId: td.id, icon: td.icon, level: 1 });
+          nd.x = Math.cos(th) * rad * R_TRUTH; nd.y = y * R_TRUTH; nd.z = Math.sin(th) * rad * R_TRUTH;
+          truthNodes[td.id] = nd;
+        });
+        // 双向挂接：知识/探索 → 真理
+        nodes.forEach(function (n) {
+          if (n.kind === 'kb' && window.Reg) {
+            const it = Reg.byId[n.kid];
+            if (!it) return;
+            Truths.forKb(it).forEach(function (tid) {
+              if (truthNodes[tid]) edges.push({ a: truthNodes[tid], b: n, len: 300, k: 0.0012, truth: true });
+            });
+          } else if (n.kind === 'exp') {
+            const d = expAll.find(function (x) { return x.title === n.name; });
+            if (!d) return;
+            Truths.forExplore(d).forEach(function (tid) {
+              if (truthNodes[tid]) edges.push({ a: truthNodes[tid], b: n, len: 300, k: 0.0012, truth: true });
+            });
+          }
         });
       }
       // 跨学科连线
@@ -251,9 +223,9 @@
       function baseName(s) { return s.replace(/[（(].*?[)）]/g, '').trim(); }
       T.crossLinks.forEach(function (l) {
         const a = byTitle[baseName(l.from)], b = byTitle[baseName(l.to)];
-        if (a && b) edges.push({ a: a, b: b, len: 300, k: 0.003, cross: true, text: l.text });
+        if (a && b) edges.push({ a: a, b: b, len: 320, k: 0.002, cross: true, text: l.text });
       });
-      // 前置依赖边（星图 2.0）：被依赖者 → 依赖者
+      // 前置依赖边：被依赖者 → 依赖者
       const byKid = {};
       nodes.forEach(function (n) { if (n.kind === 'kb') byKid[n.kid] = n; });
       if (window.Deps) {
@@ -262,14 +234,12 @@
           if (!b) return;
           (Deps[id] || []).forEach(function (p) {
             const a = byKid[p];
-            if (a) edges.push({ a: a, b: b, len: 120, k: 0.01, cross: false, dep: true });
+            if (a) edges.push({ a: a, b: b, len: 130, k: 0.008, dep: true });
           });
         });
       }
-      // 连接度 → Z 轴高度
       edges.forEach(function (e) { e.a.deg++; e.b.deg++; });
       nodes.forEach(function (n) {
-        n.z = Math.min(160, n.deg * 14);
         n.lit = isLitNode(n);
         if (n.kind === 'kb' && window.Progress) {
           const g = Progress.checkGate(n.kid);
@@ -278,25 +248,31 @@
           n.mastery = Progress.mastery(litKey(n));
         }
         if (n.lit && n.type === 'topic') n.r = 6;
+        n.truthIds = [];
+      });
+      // 记录每个节点挂的真理 id（卡片用）
+      edges.forEach(function (e) {
+        if (e.truth) {
+          if (e.b.truthIds && e.a.truthId) e.b.truthIds.push(e.a.truthId);
+        }
       });
     }
 
-    // ---- 3D 相机 ----
-    let yaw = 0.35, pitch = 0.42, zoom = 0.62;
-    const CAMD = 2200;
+    // ---- 3D 相机：真正的绕 Y / 绕 X 旋转 ----
+    let yaw = 0.6, pitch = 0.35, zoom = 0.62;
+    const CAMD = 2400;
     function project(n) {
       const cy = Math.cos(yaw), sy = Math.sin(yaw);
       const cp = Math.cos(pitch), sp = Math.sin(pitch);
-      const x1 = n.x * cy - n.z * sy * 0; // 绕Y轴旋转 x,z
-      const z1 = n.x * sy + n.z * cy;
-      const x2 = x1;
+      const x1 = n.x * cy + n.z * sy;
+      const z1 = -n.x * sy + n.z * cy;
       const y2 = n.y * cp - z1 * sp;
       const z2 = n.y * sp + z1 * cp;
       const s = CAMD / (CAMD + z2) * zoom;
-      return [W / 2 + x2 * s, H / 2 + y2 * s, z2, s];
+      return [W / 2 + x1 * s, H / 2 + y2 * s, z2, s];
     }
 
-    // ---- 平面力导向（只调 x,y；z 固定） ----
+    // ---- 3D 力导向：同学科斥力 + 弹簧，投影回球壳 ----
     let alpha = 1;
     function tick() {
       if (alpha < 0.005) return;
@@ -304,33 +280,32 @@
         for (let j = i + 1; j < nodes.length; j++) {
           const A = nodes[i], B = nodes[j];
           if (A.subject !== B.subject) continue;
-          let dx = B.x - A.x, dy = B.y - A.y;
-          let d2 = dx * dx + dy * dy;
-          if (d2 < 1) { d2 = 1; dx = Math.random() - 0.5; dy = Math.random() - 0.5; }
+          let dx = B.x - A.x, dy = B.y - A.y, dz = B.z - A.z;
+          let d2 = dx * dx + dy * dy + dz * dz;
+          if (d2 < 1) { d2 = 1; dx = Math.random() - 0.5; dy = Math.random() - 0.5; dz = Math.random() - 0.5; }
           const d = Math.sqrt(d2);
-          const f = 1600 / d2;
-          A.vx -= dx / d * f; A.vy -= dy / d * f;
-          B.vx += dx / d * f; B.vy += dy / d * f;
+          const f = 2600 / d2;
+          A.vx -= dx / d * f; A.vy -= dy / d * f; A.vz -= dz / d * f;
+          B.vx += dx / d * f; B.vy += dy / d * f; B.vz += dz / d * f;
         }
       }
       edges.forEach(function (e) {
-        const dx = e.b.x - e.a.x, dy = e.b.y - e.a.y;
-        const d = Math.sqrt(dx * dx + dy * dy) || 1;
+        if (e.truth) return; // 真理虚线不参与力学，避免内核被拉变形
+        const dx = e.b.x - e.a.x, dy = e.b.y - e.a.y, dz = e.b.z - e.a.z;
+        const d = Math.sqrt(dx * dx + dy * dy + dz * dz) || 1;
         const f = (d - e.len) * e.k;
-        e.a.vx += dx / d * f; e.a.vy += dy / d * f;
-        e.b.vx -= dx / d * f; e.b.vy -= dy / d * f;
+        e.a.vx += dx / d * f; e.a.vy += dy / d * f; e.a.vz += dz / d * f;
+        e.b.vx -= dx / d * f; e.b.vy -= dy / d * f; e.b.vz -= dz / d * f;
       });
       nodes.forEach(function (n) {
-        const c = centers[n.subject];
-        const dx = n.x - c[0], dy = n.y - c[1];
-        const d = Math.hypot(dx, dy) || 1;
-        const target = ringR[n.level || 3] || 180;
-        const f = (target - d) * 0.025;
-        n.vx += dx / d * f; n.vy += dy / d * f;
-        n.vx *= 0.86; n.vy *= 0.86;
-        n.x += n.vx * alpha; n.y += n.vy * alpha;
+        n.vx *= 0.85; n.vy *= 0.85; n.vz *= 0.85;
+        n.x += n.vx * alpha; n.y += n.vy * alpha; n.z += n.vz * alpha;
+        // 投影回所属球壳
+        const d = Math.sqrt(n.x * n.x + n.y * n.y + n.z * n.z) || 1;
+        const r = n.shell || R_OUT;
+        n.x = n.x / d * r; n.y = n.y / d * r; n.z = n.z / d * r;
       });
-      alpha *= 0.99;
+      alpha *= 0.985;
     }
 
     // ---- 交互：旋转/缩放/拾取 ----
@@ -364,7 +339,7 @@
         const dx = m[0] - lastM[0], dy = m[1] - lastM[1];
         movedDist += Math.abs(dx) + Math.abs(dy);
         yaw += dx * 0.005;
-        pitch += dy * 0.005; // 任意角度旋转（不限制）
+        pitch += dy * 0.005;
         tip.style.display = 'none';
       } else {
         hover = findNode(m[0], m[1]);
@@ -373,9 +348,10 @@
           tip.style.left = (ev.clientX + 14) + 'px';
           tip.style.top = (ev.clientY + 14) + 'px';
           const st = hover.type === 'root' ? '学科主干' : hover.type === 'hub' ? '分支层' :
+            hover.kind === 'truth' ? '🌐 科学真理 · 点击查看关联知识' :
             (hover.kind === 'kb' ? (hover.lit ? '★已点亮 · 点击进入' : '连接度 ' + hover.deg + ' · 点击进入') :
               hover.kind === 'exp' ? '探索主题 · 点击查看' : '');
-          tip.innerHTML = '<b>' + hover.name + '</b><br><span style="color:#94a3b8">' + st + '</span>';
+          tip.innerHTML = '<b>' + (hover.icon ? hover.icon + ' ' : '') + hover.name + '</b><br><span style="color:#94a3b8">' + st + '</span>';
         } else tip.style.display = 'none';
       }
       lastM = m;
@@ -392,6 +368,43 @@
       ev.preventDefault();
       zoom = Math.max(0.25, Math.min(2.2, zoom * (ev.deltaY > 0 ? 0.9 : 1.1)));
     }, { passive: false });
+    // 触屏：单指旋转，双指捏合缩放
+    let lastTouch = null, lastPinch = 0;
+    holder.addEventListener('touchstart', function (ev) {
+      if (ev.touches.length === 1) { lastTouch = [ev.touches[0].clientX, ev.touches[0].clientY]; movedDist = 0; }
+      if (ev.touches.length === 2) {
+        lastPinch = Math.hypot(ev.touches[0].clientX - ev.touches[1].clientX, ev.touches[0].clientY - ev.touches[1].clientY);
+      }
+    }, { passive: true });
+    holder.addEventListener('touchmove', function (ev) {
+      if (ev.touches.length === 1 && lastTouch) {
+        const dx = ev.touches[0].clientX - lastTouch[0], dy = ev.touches[0].clientY - lastTouch[1];
+        movedDist += Math.abs(dx) + Math.abs(dy);
+        yaw += dx * 0.006; pitch += dy * 0.006;
+        lastTouch = [ev.touches[0].clientX, ev.touches[0].clientY];
+      } else if (ev.touches.length === 2) {
+        const p = Math.hypot(ev.touches[0].clientX - ev.touches[1].clientX, ev.touches[0].clientY - ev.touches[1].clientY);
+        if (lastPinch > 0) zoom = Math.max(0.25, Math.min(2.2, zoom * (p / lastPinch)));
+        lastPinch = p;
+        ev.preventDefault();
+      }
+    }, { passive: false });
+    holder.addEventListener('touchend', function (ev) {
+      if (movedDist < 8 && lastTouch) {
+        const r = canvas.getBoundingClientRect();
+        const n = findNode(lastTouch[0] - r.left, lastTouch[1] - r.top);
+        if (n) openCard(n);
+      }
+      lastTouch = null; lastPinch = 0;
+    });
+
+    function chipEl(text, fg, bd, onClick) {
+      const chip = document.createElement('a');
+      chip.style.cssText = 'display:inline-block;margin:2px 4px 2px 0;padding:1px 8px;background:#fff;border:1px solid ' + bd + ';border-radius:10px;cursor:pointer;color:' + fg + ';font-size:12px';
+      chip.textContent = text;
+      chip.addEventListener('click', onClick);
+      return chip;
+    }
 
     function openCard(nd) {
       card.innerHTML = '';
@@ -399,28 +412,72 @@
       const meta = document.createElement('div');
       meta.style.cssText = 'font-size:11px;color:#64748b;margin-bottom:4px';
       meta.textContent = it ? it.stage + ' · ' + it.branch + ' · 连接度 ' + nd.deg :
-        (nd.kind === 'exp' ? '探索篇 · 自由探索' : '分支');
+        (nd.kind === 'exp' ? '探索篇 · 自由探索' : nd.kind === 'truth' ? '🌐 科学真理 · 科技树主干' : '分支');
       card.appendChild(meta);
       const h = document.createElement('h3');
       h.style.cssText = 'margin:0 0 10px;font-size:18px';
-      h.innerHTML = nd.name + (nd.lit ? ' <span style="color:#f59e0b">★ 已点亮</span>' : '');
+      h.innerHTML = (nd.icon ? nd.icon + ' ' : '') + nd.name + (nd.lit ? ' <span style="color:#f59e0b">★ 已点亮</span>' : '');
       card.appendChild(h);
-      if (it) {
-        // 星图 2.0：前置门槛 /路径回望
-        if (nd.kind === 'kb' && window.Deps) {
+
+      if (nd.kind === 'truth' && window.Truths) {
+        const td = Truths.byId[nd.truthId];
+        const p = document.createElement('p');
+        p.style.cssText = 'font-size:13px;line-height:1.8;color:#334155';
+        p.textContent = td ? td.desc : '';
+        card.appendChild(p);
+        const rev = Truths.reverse()[nd.truthId];
+        if (rev) {
+          const kbList = rev.kb.slice(0, 10);
+          const kdiv = document.createElement('div');
+          kdiv.style.cssText = 'margin-top:8px';
+          kdiv.innerHTML = '<span style="font-size:12px;color:#64748b">📚 关联课内知识（共 ' + rev.kb.length + ' 个' + (rev.kb.length > 10 ? '，示前 10' : '') + '）：</span><br>';
+          kbList.forEach(function (id) {
+            const kn = nodes.find(function (x) { return x.kind === 'kb' && x.kid === id; });
+            const item = Reg.byId[id];
+            if (kn && item) kdiv.appendChild(chipEl(item.title, '#1e40af', '#93c5fd', function () { openCard(kn); }));
+          });
+          card.appendChild(kdiv);
+          if (rev.exp.length) {
+            const ediv = document.createElement('div');
+            ediv.style.cssText = 'margin-top:8px';
+            ediv.innerHTML = '<span style="font-size:12px;color:#64748b">🔭 关联探索主题（' + rev.exp.length + ' 个）：</span><br>';
+            rev.exp.slice(0, 6).forEach(function (t) {
+              ediv.appendChild(chipEl(t, '#92400e', '#f59e0b', function () {
+                window._exploreQuery = t.split('：')[0];
+                location.hash = '#/explore';
+                closeCard();
+              }));
+            });
+            card.appendChild(ediv);
+          }
+        }
+        const close = document.createElement('button');
+        close.className = 'btn secondary'; close.textContent = '关闭';
+        close.style.marginTop = '12px';
+        close.addEventListener('click', closeCard);
+        card.appendChild(close);
+      } else if (it) {
+        // 真理 chips（双向挂接的反向）
+        if (nd.truthIds && nd.truthIds.length && window.Truths) {
+          const tdiv = document.createElement('div');
+          tdiv.style.cssText = 'margin-bottom:8px';
+          tdiv.innerHTML = '<span style="font-size:12px;color:#64748b">🌐 这条知识站在哪些真理上：</span><br>';
+          nd.truthIds.forEach(function (tid) {
+            const tn = nodes.find(function (x) { return x.kind === 'truth' && x.truthId === tid; });
+            const td = Truths.byId[tid];
+            if (tn && td) tdiv.appendChild(chipEl(td.icon + ' ' + td.name, '#a16207', '#eab308', function () { openCard(tn); }));
+          });
+          card.appendChild(tdiv);
+        }
+        if (window.Deps) {
           const deps = Deps[it.id] || [];
           if (!nd.lit && nd.gate === 'locked' && deps.length) {
             const gdiv = document.createElement('div');
             gdiv.style.cssText = 'background:#fef3c7;border:1px solid #f59e0b;border-radius:8px;padding:8px 10px;font-size:12.5px;margin-bottom:8px;color:#92400e';
             gdiv.innerHTML = '🔒 建议先点亮：';
             deps.forEach(function (pid) {
-              const pn = byKid[pid];
-              if (!pn) return;
-              const chip = document.createElement('a');
-              chip.style.cssText = 'display:inline-block;margin:2px 4px 2px 0;padding:1px 8px;background:#fff;border:1px solid #f59e0b;border-radius:10px;cursor:pointer;color:#92400e';
-              chip.textContent = pn.name;
-              chip.addEventListener('click', function () { openCard(pn); });
-              gdiv.appendChild(chip);
+              const pn = byKidSafe(pid);
+              if (pn) gdiv.appendChild(chipEl(pn.name, '#92400e', '#f59e0b', function () { openCard(pn); }));
             });
             card.appendChild(gdiv);
           }
@@ -430,13 +487,8 @@
             udiv.style.cssText = 'background:#ecfdf5;border:1px solid #6ee7b7;border-radius:8px;padding:8px 10px;font-size:12.5px;margin-bottom:8px;color:#065f46';
             udiv.innerHTML = '🗝️ 已为你解锁：';
             unlocks.slice(0, 4).forEach(function (pid) {
-              const pn = byKid[pid];
-              if (!pn) return;
-              const chip = document.createElement('a');
-              chip.style.cssText = 'display:inline-block;margin:2px 4px 2px 0;padding:1px 8px;background:#fff;border:1px solid #6ee7b7;border-radius:10px;cursor:pointer;color:#065f46';
-              chip.textContent = pn.name;
-              chip.addEventListener('click', function () { openCard(pn); });
-              udiv.appendChild(chip);
+              const pn = byKidSafe(pid);
+              if (pn) udiv.appendChild(chipEl(pn.name, '#065f46', '#6ee7b7', function () { openCard(pn); }));
             });
             card.appendChild(udiv);
           }
@@ -478,7 +530,19 @@
         btnRow.appendChild(go); btnRow.appendChild(close);
         card.appendChild(btnRow);
       } else if (nd.kind === 'exp') {
-        const d = window.ExploreData ? ExploreData.find(function (x) { return x.title === nd.name; }) : null;
+        const expAll = (window.ExploreData || []).concat(window.ExploreData2 || []).concat(window.ExploreData3 || []);
+        const d = expAll.find(function (x) { return x.title === nd.name; });
+        if (nd.truthIds && nd.truthIds.length && window.Truths) {
+          const tdiv = document.createElement('div');
+          tdiv.style.cssText = 'margin-bottom:8px';
+          tdiv.innerHTML = '<span style="font-size:12px;color:#64748b">🌐 关联真理：</span><br>';
+          nd.truthIds.forEach(function (tid) {
+            const tn = nodes.find(function (x) { return x.kind === 'truth' && x.truthId === tid; });
+            const td = Truths.byId[tid];
+            if (tn && td) tdiv.appendChild(chipEl(td.icon + ' ' + td.name, '#a16207', '#eab308', function () { openCard(tn); }));
+          });
+          card.appendChild(tdiv);
+        }
         const p = document.createElement('p');
         p.style.cssText = 'font-size:13px;line-height:1.7;color:#334155';
         p.textContent = d ? d.teaser + ' ' + (d.body || '').slice(0, 100) : '探索主题。';
@@ -489,6 +553,7 @@
         go.href = '#/explore';
         go.className = 'btn'; go.style.textDecoration = 'none';
         go.textContent = '去资料篇 →';
+        go.addEventListener('click', function () { if (d) window._exploreQuery = d.title.split('：')[0]; });
         const close = document.createElement('button');
         close.className = 'btn secondary'; close.textContent = '关闭';
         close.addEventListener('click', closeCard);
@@ -497,7 +562,7 @@
       } else {
         const p = document.createElement('p');
         p.style.cssText = 'font-size:13px;color:#475569';
-        p.textContent = '该分支节点，连接度 ' + nd.deg + '。';
+        p.textContent = '分支节点「' + nd.name + '」，连接度 ' + nd.deg + '。拖拽旋转球体可查看其下的知识点。';
         card.appendChild(p);
         const close = document.createElement('button');
         close.className = 'btn secondary'; close.textContent = '关闭';
@@ -507,16 +572,57 @@
       card.style.display = 'block';
       shade.style.display = 'block';
     }
+    function byKidSafe(id) {
+      for (let i = 0; i < nodes.length; i++) if (nodes[i].kind === 'kb' && nodes[i].kid === id) return nodes[i];
+      return null;
+    }
+    // 测试钩子（自检脚本用，不影响交互）
+    T._last = { nodes: nodes, edges: edges, project: project, openCard: openCard };
 
     // ---- 绘制（深度排序） ----
+    function drawSphereFrame() {
+      // 球体轮廓 + 纬线环，给"球"的深度感
+      const rings = [[0, '#334155', 1.2], [Math.PI / 6, '#1e293b', 0.8], [-Math.PI / 6, '#1e293b', 0.8], [Math.PI / 3, '#172033', 0.6], [-Math.PI / 3, '#172033', 0.6]];
+      rings.forEach(function (rg) {
+        const lat = rg[0], rr = R_OUT * Math.cos(lat), yy = R_OUT * Math.sin(lat);
+        ctx.strokeStyle = 'rgba(51,65,85,' + (0.35 * rg[2]) + ')';
+        ctx.lineWidth = rg[2];
+        ctx.beginPath();
+        let started = false;
+        for (let i = 0; i <= 72; i++) {
+          const ph = i / 72 * Math.PI * 2;
+          const p = project({ x: rr * Math.cos(ph), y: yy, z: rr * Math.sin(ph) });
+          if (!started) { ctx.moveTo(p[0], p[1]); started = true; } else ctx.lineTo(p[0], p[1]);
+        }
+        ctx.stroke();
+      });
+      // 内核球轮廓
+      ctx.strokeStyle = 'rgba(234,179,8,.12)';
+      ctx.lineWidth = 1;
+      ctx.beginPath();
+      let st2 = false;
+      for (let i = 0; i <= 72; i++) {
+        const ph = i / 72 * Math.PI * 2;
+        const p = project({ x: R_TRUTH * Math.cos(ph), y: 0, z: R_TRUTH * Math.sin(ph) });
+        if (!st2) { ctx.moveTo(p[0], p[1]); st2 = true; } else ctx.lineTo(p[0], p[1]);
+      }
+      ctx.stroke();
+    }
+
     function draw() {
       ctx.clearRect(0, 0, W, H);
       const hi = hover ? neighbors(hover) : null;
+      drawSphereFrame();
       // 边
       edges.forEach(function (e) {
         const pa = project(e.a), pb = project(e.b);
         const dim = hi && !(hi.has(e.a) && hi.has(e.b));
-        if (e.dep) {
+        if (e.truth) {
+          const on = hover && (e.a === hover || e.b === hover);
+          ctx.strokeStyle = on ? 'rgba(234,179,8,.85)' : 'rgba(234,179,8,' + (dim ? 0.02 : 0.06) + ')';
+          ctx.lineWidth = on ? 1.4 : 0.7;
+          ctx.setLineDash([3, 6]);
+        } else if (e.dep) {
           const litEdge = e.a.lit && e.b.lit;
           ctx.strokeStyle = litEdge ? 'rgba(96,165,250,' + (dim ? 0.08 : 0.55) + ')' :
             'rgba(96,165,250,' + (dim ? 0.04 : 0.22) + ')';
@@ -524,7 +630,7 @@
           ctx.setLineDash([2, 4]);
         } else {
           ctx.strokeStyle = e.cross ? 'rgba(245,158,11,' + (dim ? 0.06 : 0.45) + ')' :
-            'rgba(148,163,184,' + (dim ? 0.03 : 0.12) + ')';
+            'rgba(148,163,184,' + (dim ? 0.03 : 0.14) + ')';
           ctx.lineWidth = e.cross ? 1.4 : 0.8;
           ctx.setLineDash(e.cross ? [5, 5] : []);
         }
@@ -537,22 +643,16 @@
       sorted.forEach(function (pair) {
         const p = pair[0], n = pair[1];
         const dim = hi && !hi.has(n);
-        const depthFade = Math.max(0.25, Math.min(1, 1.25 - p[2] / 1600));
+        const depthFade = Math.max(0.3, Math.min(1, 1.25 - p[2] / 1700));
         ctx.globalAlpha = (dim ? 0.12 : 1) * depthFade;
         const rr = Math.max(1.5, n.r * p[3]);
-        // Z 轴柱线（连接度抬升）
-        if (n.z > 0 && n.type === 'topic') {
-          const base = project({ x: n.x, y: n.y, z: 0 });
-          ctx.strokeStyle = 'rgba(245,158,11,.35)';
-          ctx.lineWidth = 1;
-          ctx.beginPath(); ctx.moveTo(base[0], base[1]); ctx.lineTo(p[0], p[1]); ctx.stroke();
-        }
-        const glow = n.lit || n === hover || n.gate === 'avail';
-        if (glow) { ctx.shadowColor = n.lit ? '#f59e0b' : n.color; ctx.shadowBlur = 12; }
+        const glow = n.lit || n === hover || n.gate === 'avail' || n.kind === 'truth';
+        if (glow) { ctx.shadowColor = n.lit ? '#f59e0b' : n.color; ctx.shadowBlur = n.kind === 'truth' ? 18 : 12; }
         ctx.beginPath(); ctx.arc(p[0], p[1], rr, 0, Math.PI * 2);
-        // 三态：lit(掌握度调亮度) / avail(白亮+学科色描边) / locked(暗灰)
         let fill;
-        if (n.lit) {
+        if (n.kind === 'truth') {
+          fill = '#eab308';
+        } else if (n.lit) {
           const ma = (typeof n.mastery === 'number') ? n.mastery : 1;
           const al = 0.3 + 0.7 * ma;
           fill = 'rgba(245,158,11,' + al.toFixed(2) + ')';
@@ -565,43 +665,28 @@
         ctx.fillStyle = fill;
         ctx.fill();
         ctx.shadowBlur = 0;
-        if (n.type === 'topic' && !n.lit && n.kind === 'kb') {
+        if (n.kind === 'truth') {
+          ctx.strokeStyle = '#fef3c7'; ctx.lineWidth = 1.5; ctx.stroke();
+        } else if (n.type === 'topic' && !n.lit && n.kind === 'kb') {
           ctx.strokeStyle = n.gate === 'locked' ? 'rgba(100,116,139,.6)' : n.color;
           ctx.lineWidth = n.gate === 'avail' ? 1.8 : 1;
           ctx.stroke();
         }
-        // 文字固定屏幕字号（不随缩放变小）；放大时显示更多知识点标签
-        const showLabel = n.type !== 'topic' || n.lit || n.gate === 'avail' || (hi && hi.has(n)) || n.deg >= 5 || zoom > 0.9;
+        const showLabel = n.kind === 'truth' || n.type !== 'topic' || n.lit || n.gate === 'avail' || (hi && hi.has(n)) || n.deg >= 9 || zoom > 1.1;
         if (showLabel) {
-          ctx.fillStyle = n.type === 'topic' ? '#cbd5e1' : '#fff';
-          ctx.font = (n.type === 'root' ? 'bold 14px' : '11px') + ' sans-serif';
+          ctx.fillStyle = n.kind === 'truth' ? '#fde68a' : n.type === 'topic' ? '#cbd5e1' : '#fff';
+          ctx.font = (n.kind === 'truth' ? 'bold 12px' : n.type === 'root' ? 'bold 14px' : '11px') + ' sans-serif';
           ctx.textAlign = 'center';
-          ctx.fillText(n.name, p[0], p[1] - rr - 5);
+          ctx.fillText((n.icon ? n.icon + ' ' : '') + n.name, p[0], p[1] - rr - 5);
           ctx.textAlign = 'left';
         }
         ctx.globalAlpha = 1;
       });
-      // 学科标签
-      [['math', '数学', '#2563eb'], ['physics', '物理', '#dc2626'], ['chemistry', '化学', '#059669'], ['explore', '探索', '#f59e0b']].forEach(function (s) {
-        const p = project({ x: centers[s[0]][0], y: 0, z: 200 });
-        ctx.fillStyle = s[2];
-        ctx.font = 'bold 18px sans-serif';
-        ctx.textAlign = 'center';
-        ctx.fillText(s[1], p[0], p[1]);
-        ctx.textAlign = 'left';
-      });
-      // Z 轴图例
-      ctx.strokeStyle = '#475569';
-      ctx.beginPath(); ctx.moveTo(30, 140); ctx.lineTo(30, 340); ctx.stroke();
-      ctx.fillStyle = '#94a3b8'; ctx.font = '10px sans-serif';
-      ctx.fillText('Z = 连接度', 14, 130);
-      ctx.fillText('关联越多越高', 10, 356);
-      for (let f = 0; f <= 4; f++) {
-        const y = 340 - f * 50;
-        ctx.beginPath(); ctx.moveTo(26, y); ctx.lineTo(34, y); ctx.stroke();
-        ctx.fillStyle = f >= 3 ? '#f59e0b' : '#64748b';
-        ctx.fillText(f * 3 + '+', 38, y + 3);
-      }
+      // 图例
+      ctx.fillStyle = '#64748b'; ctx.font = '11px sans-serif';
+      ctx.fillText('外壳：四学科知识 + 探索主题', 16, H - 40);
+      ctx.fillStyle = '#eab308';
+      ctx.fillText('内核：15 条科学真理（金色虚线双向挂接）', 16, H - 24);
     }
 
     let inView = true;
@@ -619,7 +704,7 @@
     resetBtn.className = 'btn secondary';
     resetBtn.style.cssText = 'position:absolute;top:12px;right:12px;z-index:6;background:#1e293b;color:#e2e8f0;border:1px solid #475569';
     resetBtn.textContent = '⟲ 重置视角';
-    resetBtn.addEventListener('click', function () { yaw = 0.35; pitch = 0.42; zoom = 0.62; alpha = 0.6; });
+    resetBtn.addEventListener('click', function () { yaw = 0.6; pitch = 0.35; zoom = 0.62; alpha = 0.6; });
     holder.appendChild(resetBtn);
   };
 

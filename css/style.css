@@ -201,3 +201,18 @@ html[data-skin="fire"] .g-node.lit { border-color: #ea580c; }
   .module-head h1 { font-size: 19px; }
   canvas { max-width: 100%; }
 }
+
+/* ===== 动画精美度（E4）：演示画布统一描边投影 + 悬浮微抬升 ===== */
+.viz-card canvas, .explore-card canvas, .subject-card canvas {
+  border: 1px solid #e2e8f0;
+  box-shadow: 0 2px 10px rgba(15, 23, 42, .10);
+  transition: box-shadow .2s ease, transform .2s ease;
+}
+.viz-card canvas:hover, .explore-card canvas:hover, .subject-card canvas:hover {
+  box-shadow: 0 6px 20px rgba(15, 23, 42, .18);
+  transform: translateY(-2px);
+}
+/* 深色画布保持描边一致 */
+.viz-card canvas[style*="0f172a"], .explore-card canvas[style*="0f172a"], .subject-card canvas[style*="0f172a"] {
+  border-color: #1e293b;
+}

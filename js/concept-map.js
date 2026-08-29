@@ -13,16 +13,16 @@
     math_j2_02: { core: 'squareFormula', o: { label: '完全平方公式：大正方形 = 四块面积之和' } },
     /* ===== 数学 ===== */
     math_j2_03: { core: 'factorize', o: { label: '因式分解：把面积块提取公因式，化为乘积形式' } },
-    math_j3_02: { core: 'polyhedron', o: { label: '实数与数轴上的点一一对应' } },
-    math_j7_02: { core: 'vtGraph', o: { label: '函数：每个 x 对应唯一 y —— 图像上的竖直检验' } },
+    math_j3_02: { core: 'realLine', o: { label: '实数与数轴上的点一一对应：每个数都有一个位置' } },
+    math_j7_02: { core: 'funcTest', o: { label: '函数：每个 x 对应唯一 y —— 图像上的竖直检验' } },
     math_j9_04: { core: 'congruent', o: {} },
-    math_j11_03: { core: 'similar', o: { label: '圆周角 = 圆心角的一半（同弧所对）' } },
+    math_j11_03: { core: 'circleAngle', o: { label: '圆周角 = 圆心角的一半（同弧所对）' } },
     math_j13_01: { core: 'polyhedron', o: {} },
-    math_j14_03: { core: 'reaction', o: { speed: 0.6, label: '列举法：把所有等可能结果一个不漏地列出来' } },
+    math_j14_03: { core: 'enumerate', o: { label: '列举法：把所有等可能结果一个不漏地列出来' } },
     math_j15_02: { core: 'sampling', o: { label: '抽样调查：从总体随机抽样，用样本估计总体' } },
     math_g1_02: { core: 'necessary', o: { label: '充分必要条件：小范围⇒大范围，看集合包含方向' } },
     math_g1_03: { core: 'quantifier', o: { label: '命题的否定：∀↔∃ 互换，结论取否' } },
-    math_g2_04: { core: 'vtGraph', o: { label: '单调性看图像升降；偶函数关于 y 轴对称' } },
+    math_g2_04: { core: 'monoParity', o: { label: '单调性看图像升降；偶函数关于 y 轴对称，奇函数关于原点对称' } },
     math_g3_03: { core: 'telescope', o: { label: '裂项相消：相邻项互相抵消，只剩首尾' } },
     math_m03: { core: 'parallelLines', o: { label: '平行线：同位角/内错角/同旁内角' } },
     math_m09: { core: 'polyhedron', o: { label: '空间直线：相交/平行/异面' } },
@@ -143,7 +143,7 @@
     if (/实验|计算/.test(kw)) return { core: 'flow', o: { steps: ['审题', '建模', '计算', '检验'], label: item.title + '：规范化解题流程' } };
     if (/统计|概率/.test(kw)) return { core: 'reaction', o: { speed: 0.6, label: '统计与概率：大量重复试验中的规律性' } };
     if (/几何/.test(kw)) return { core: 'polyhedron', o: {} };
-    if (/函数/.test(kw)) return { core: 'vtGraph', o: {} };
+    if (/函数/.test(kw)) return { core: 'funcTest', o: {} };
     return { core: 'flow', o: { steps: ['概念引入', '核心机制', '典型例题', '总结提升'], label: item.title } };
   }
 
