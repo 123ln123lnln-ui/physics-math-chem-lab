@@ -548,6 +548,61 @@
     })();
   }
 
+  /* ---------- 14. 通用动态条图（兜底视图：任何数值结果都能动起来） ----------
+   * 每行结果一根条，长度=相对最大值的占比；参数变化时条长按弹性缓动跟随，绝不生硬跳变。 */
+  function vizBars(host, params, rows, P) {
+    const V = mkCanvas(host, 420, 170);
+    let t = 0;
+    const smooth = {}; // 每行当前显示长度（缓动）
+    function rowNum(v) {
+      if (typeof v === 'number' && isFinite(v)) return v;
+      if (typeof v === 'string') { const m = parseFloat(v); if (isFinite(m) && /^[-+]?[\d.]/.test(v.trim())) return m; }
+      return null;
+    }
+    (function loop() {
+      const ctx = V.ctx;
+      ctx.fillStyle = '#0f172a'; ctx.fillRect(0, 0, V.w, V.h);
+      const rowsNow = (typeof rows === 'function' ? rows() : rows) || [];
+      const data = rowsNow.map(function (r) { return { label: String(r[0]), val: rowNum(r[1]), raw: r[1] }; })
+        .filter(function (r) { return r.val !== null; }).slice(0, 5);
+      if (!data.length) {
+        ctx.fillStyle = '#94a3b8'; ctx.font = '12px sans-serif';
+        ctx.fillText('结果以文本形式给出，见上方读数。', 16, 30);
+        t++; window.requestAnimationFrame(loop); return;
+      }
+      let maxAbs = 0;
+      data.forEach(function (d) { maxAbs = Math.max(maxAbs, Math.abs(d.val)); });
+      if (maxAbs < 1e-12) maxAbs = 1;
+      const x0 = 108, xMax = V.w - 66, barH = 20, gap = 8;
+      const y0 = 26;
+      const pulse = 1 + Math.sin(t * 0.06) * 0.012; // 呼吸微动，提示"这是活的"
+      data.forEach(function (d, i) {
+        const y = y0 + i * (barH + gap);
+        const target = Math.abs(d.val) / maxAbs * (xMax - x0);
+        smooth[i] = smooth[i] === undefined ? 0 : smooth[i] + (target - smooth[i]) * 0.14;
+        const len = smooth[i] * pulse;
+        const hue = ['#38bdf8', '#4ade80', '#fbbf24', '#f472b6', '#a78bfa'][i % 5];
+        // 负值向左画（相对零点在最左端即可，取绝对长度，颜色提示符号）
+        ctx.fillStyle = d.val < 0 ? '#f87171' : hue;
+        ctx.beginPath();
+        const rr = Math.min(4, len / 2);
+        const xR = x0 + len, yR = y + barH;
+        ctx.moveTo(x0, y);
+        ctx.lineTo(xR - rr, y); ctx.arcTo(xR, y, xR, y + rr, rr);
+        ctx.lineTo(xR, yR - rr); ctx.arcTo(xR, yR, xR - rr, yR, rr);
+        ctx.lineTo(x0, yR); ctx.closePath(); ctx.fill();
+        ctx.fillStyle = '#cbd5e1'; ctx.font = '10.5px sans-serif'; ctx.textAlign = 'right';
+        ctx.fillText(d.label.slice(0, 9), x0 - 8, y + barH / 2 + 4);
+        ctx.textAlign = 'left';
+        ctx.fillStyle = '#e2e8f0';
+        ctx.fillText(typeof d.raw === 'number' ? UI.fmt(d.raw, 3) : String(d.raw), x0 + len + 6, y + barH / 2 + 4);
+      });
+      ctx.fillStyle = '#64748b'; ctx.font = '10px sans-serif';
+      ctx.fillText('红色=负值；条长按最大结果归一，拖滑块看它们此消彼长', 14, V.h - 8);
+      t++; window.requestAnimationFrame(loop);
+    })();
+  }
+
   /* ---------- 匹配规则：分支/标题 → 模板 ---------- */
   const RULES = [
     [/运动学|自由落体|竖直上抛|匀变速/, vizMotion],
@@ -563,7 +618,8 @@
     [/化学|反应|酸碱|气体|摩尔|速率/, vizBubbles],
     [/向量/, vizVector],
     [/数列/, vizSequence],
-    [/光学|透镜|折射|反射/, vizLens]
+    [/光学|透镜|折射|反射/, vizLens],
+    [/[\s\S]/, vizBars] // 兜底：任何 calc 实验至少有会呼吸的动态条图
   ];
 
   LV.mount = function (host, item, params, computeRows) {
