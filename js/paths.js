@@ -109,10 +109,11 @@
       const lit = litCount(p);
       const total = p.nodes.length;
       const pct = Math.round(lit / total * 100);
+      const crowned = window.Boss && Boss.cleared(p.id);
       const card = document.createElement('div');
       card.className = 'subject-card';
       let html = '<h2 style="font-size:16px"><a style="text-decoration:none;color:inherit" href="#/paths/' + p.id + '">' +
-        (lit === total ? '🎓 ' : '') + p.title + '</a></h2>' +
+        (crowned ? '🏆 ' : lit === total ? '🎓 ' : '') + p.title + '</a></h2>' +
         '<p class="desc">' + p.desc + '</p>' +
         '<div class="path-bar"><div class="path-bar-fill" style="width:' + pct + '%"></div></div>' +
         '<div style="display:flex;justify-content:space-between;align-items:center;margin-top:8px;font-size:12.5px;color:#64748b">' +
@@ -172,16 +173,30 @@
     });
     root.appendChild(goalBtn);
 
+    // BOSS 战：这条主线的通关验收（答错的题照常进错题本）
+    if (window.Boss) {
+      const bc = Boss.cleared(pid);
+      const bb = document.createElement('a');
+      bb.className = 'btn' + (bc ? ' secondary' : '');
+      bb.style.cssText = 'display:inline-block;margin:10px 0 16px 8px;text-decoration:none';
+      bb.href = '#/boss/' + pid;
+      bb.textContent = bc ? '🏆 已通关 · 再战一轮' : '⚔️ 挑战 BOSS';
+      root.appendChild(bb);
+    }
+
     const ol = document.createElement('ol');
     ol.className = 'path-steps';
     p.nodes.forEach(function (id, i) {
       const it = window.Reg && Reg.byId[id];
       if (!it) return;
       const isLit = window.Progress && Progress.isLit('kb-' + id);
+      const ms = window.Progress && Progress.masteryState ? Progress.masteryState('kb-' + id) : (isLit ? 'lit' : 'dark');
       const li = document.createElement('li');
-      li.className = 'path-step' + (isLit ? ' lit' : '');
+      li.className = 'path-step ' + ms;
       let badge;
-      if (isLit) badge = '★';
+      if (ms === 'solid') badge = '🥇';
+      else if (ms === 'shaky') badge = '⚠️';
+      else if (isLit) badge = '★';
       else if (window.Progress && window.Deps && !Progress.checkGate(id).ok) badge = '🔒';
       else badge = '▶';
       li.innerHTML = '<a href="#/kb/' + id + '">' +
@@ -194,7 +209,7 @@
 
     const legend = document.createElement('p');
     legend.style.cssText = 'font-size:12px;color:#94a3b8;margin-top:10px';
-    legend.textContent = '▶ 可以学　🔒 建议先补前置（点进去会告诉你缺哪课）　★ 已点亮（会随时间变暗，答对一题重新点亮）';
+    legend.textContent = '▶ 可以学　🔒 建议先补前置（点进去会告诉你缺哪课）　★ 已点亮（会随时间变暗，答对一题重新点亮）　🥇 稳固（连对 2 题）　⚠️ 摇晃（刚答错，今日回顾里优先复习）';
     root.appendChild(legend);
   };
 

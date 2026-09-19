@@ -276,3 +276,11 @@ html[data-skin="fire"] .g-node.lit { border-color: #ea580c; }
   50% { box-shadow: 0 0 0 8px rgba(37, 99, 235, 0); }
 }
 .spot-pulse { animation: spot-pulse 1.8s ease-out infinite; }
+
+
+/* --- 掌握度三态 + BOSS 战（v29） --- */
+.path-step.solid a { border-color: #f59e0b; background: #fffbeb; }
+.path-step.solid a::before { background: #f59e0b; color: #fff; }
+.path-step.shaky a { border-color: #f97316; background: #fff7ed; }
+.path-step.shaky a::before { background: #ffedd5; color: #c2410c; }
+.boss-trophy { font-size: 56px; animation: fade-rise 0.6s cubic-bezier(0.16, 1, 0.3, 1) both; }

@@ -70,12 +70,14 @@
             Q.combo++;
             Progress.addPoints(5 + Math.min(Q.combo, 5), '答对（连击 ' + Q.combo + '）');
             Progress.light(moduleId);
+            Progress.markCorrect(moduleId); // 连对≥2 升级「稳固」
             if (window.Mistakes) Mistakes.remove(moduleId, q.q); // 曾错的题答对了：销掉线索
             Voice.girl(Q.combo >= 3 ? '连对 ' + Q.combo + ' 题，太厉害啦！' : '答对啦！');
             showExplain(q, true);
           } else {
             b.classList.add('wrong');
             Q.combo = 0;
+            Progress.markWrong(moduleId); // 答错立即掉为「摇晃」，进今日回顾
             if (window.Mistakes) Mistakes.add(moduleId, q); // 错题自动收录进错题本
             Voice.girl('哎呀，再想想？');
             showExplain(q, false);

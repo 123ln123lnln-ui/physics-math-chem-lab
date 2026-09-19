@@ -438,6 +438,9 @@
         if (parts[1]) Paths.renderPath(root, parts[1]);
         else Paths.renderIndex(root);
       }
+    } else if (sec === 'boss') {
+      const root = clearApp();
+      if (window.Boss) Boss.render(root, parts[1]);
     } else if (sec === 'mistakes') {
       const root = clearApp();
       if (window.Mistakes) Mistakes.render(root);

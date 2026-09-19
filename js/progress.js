@@ -52,16 +52,40 @@
     },
     /* 复习答对 → 掌握度回满 */
     relight: function (id) { P.state.lit[id] = Date.now(); P.save(); },
+    /* 掌握度三态（连击驱动，叠在时间衰减之上）：
+     * solid 稳固🥇 = 该节点连续答对≥2 题且未遗忘；shaky 摇晃⚠️ = 刚答错立即掉级；
+     * lit ★ = 已点亮且新鲜；dim = 已点亮但随时间变暗；dark = 未点亮 */
+    markCorrect: function (id) {
+      if (id === '__diag__') return;
+      const m = P.state.mastery2 || (P.state.mastery2 = {});
+      const r = m[id] || { s: 0, state: '' };
+      r.s++; if (r.s >= 2) r.state = 'solid';
+      m[id] = r; P.save();
+    },
+    markWrong: function (id) {
+      if (id === '__diag__') return;
+      const m = P.state.mastery2 || (P.state.mastery2 = {});
+      m[id] = { s: 0, state: 'shaky' }; P.save();
+    },
+    masteryState: function (id) {
+      const m = P.state.mastery2 && P.state.mastery2[id];
+      if (m && m.state === 'shaky') return 'shaky';
+      if (m && m.state === 'solid' && P.mastery(id) > 0) return 'solid';
+      if (P.isLit(id)) return P.mastery(id) >= 1 ? 'lit' : 'dim';
+      return 'dark';
+    },
     /* 前置依赖：全部已点亮才可学（软门槛）。返回 {ok, missing:[id...]} */
     checkGate: function (id) {
       const deps = (window.Deps && Deps[id]) || [];
       const missing = deps.filter(d => !P.isLit(d));
       return { ok: missing.length === 0, missing: missing };
     },
-    /* 今日回顾：已点亮但掌握度衰减的条目 */
+    /* 今日回顾：已点亮但掌握度衰减 + 答错摇晃的条目 */
     reviewList: function () {
       const out = [];
       for (const id in P.state.lit) { if (P.mastery(id) < 1) out.push(id); }
+      const m = P.state.mastery2 || {};
+      for (const id in m) { if (m[id].state === 'shaky' && out.indexOf(id) < 0) out.push(id); }
       return out;
     },
     litCount: function () { return Object.keys(P.state.lit).length; },
