@@ -81,6 +81,16 @@
       });
     }
 
+    // 错题本入口（有存货才显示）
+    if (window.Mistakes && Mistakes.count() > 0) {
+      const mc = document.createElement('div');
+      mc.className = 'viz-card';
+      mc.style.cssText = 'margin-top:12px;padding:12px 16px;background:#fff7ed;border:1px solid #fdba74;display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:10px';
+      mc.innerHTML = '<div style="font-size:14px;color:#9a3412">📒 <b>错题本</b>：还有 ' + Mistakes.count() + ' 条失分线索待回收。</div>' +
+        '<a href="#/mistakes" style="color:#c2410c;text-decoration:none;font-weight:600;font-size:14px">去清零 →</a>';
+      root.appendChild(mc);
+    }
+
     const grid = document.createElement('div');
     grid.className = 'subject-grid';
     // 图谱进度横幅
@@ -332,38 +342,62 @@
     if (window.Progress) Progress.markVisit(m.id);
   };
 
-  // 自检台：浏览器内跑黄金测试
+  // 自检台：浏览器内跑全部四道质量关口（与 node tests/run-all.js 同标准）
   App.renderLab = function () {
     const root = clearApp();
-    const h1 = document.createElement('h1'); h1.textContent = '自检台 · 黄金测试'; root.appendChild(h1);
-    const card = document.createElement('div'); card.className = 'viz-card';
-    if (!window.SCI || !window.SCI.tests) {
-      card.innerHTML = '<p>测试脚本未加载（tests.js 仅在构建/部署流水线中运行，浏览器版按需引入）。</p>';
-      root.appendChild(card);
-      return;
+    const h1 = document.createElement('h1'); h1.textContent = '自检台 · 四道质量关口'; root.appendChild(h1);
+    const sub = document.createElement('p');
+    sub.style.cssText = 'color:#64748b;font-size:13.5px;margin:4px 0 12px';
+    sub.textContent = '与发版流水线同一标准：引擎黄金测试 + 注册表校验 + 路径校验秒出结果；动画全检约十秒，点按钮开始。';
+    root.appendChild(sub);
+
+    if (!window.SelfTest) {
+      const c = document.createElement('div'); c.className = 'viz-card';
+      c.textContent = 'selftest.js 未加载。'; root.appendChild(c); return;
     }
-    root.appendChild(card);
-    // setTimeout 保证后台标签页也能渲染（rAF 在后台会被节流）
-    window.setTimeout(function () {
-      let pass = 0, fail = 0;
-      const list = document.createElement('ul'); list.className = 'lab-list';
-      SCI.tests.forEach(t => {
-        const li = document.createElement('li');
-        let ok = true, msg = '';
-        try { t.fn(); } catch (e) { ok = false; msg = e.message; }
-        if (ok) pass++; else fail++;
-        const name = document.createElement('span'); name.textContent = t.name;
-        const st = document.createElement('span'); st.className = ok ? 'ok' : 'fail';
-        st.textContent = ok ? 'PASS' : 'FAIL ' + msg;
-        li.appendChild(name); li.appendChild(st);
-        list.appendChild(li);
+
+    function renderRes(card, res) {
+      const ok = res.fails.length === 0;
+      const line = document.createElement('div');
+      line.className = 'lab-status ' + (ok ? 'ok' : 'bad');
+      line.textContent = ok ? ('全部通过 (' + res.pass + '/' + res.total + ')') : ('通过 ' + res.pass + '/' + res.total + '，失败 ' + res.fails.length + ' 项');
+      card.appendChild(line);
+      if (!ok) {
+        const ul = document.createElement('ul'); ul.className = 'lab-list';
+        res.fails.slice(0, 8).forEach(function (f) {
+          const li = document.createElement('li');
+          const nm = document.createElement('span'); nm.textContent = f;
+          const st = document.createElement('span'); st.className = 'fail'; st.textContent = 'FAIL';
+          li.appendChild(nm); li.appendChild(st); ul.appendChild(li);
+        });
+        card.appendChild(ul);
+      }
+    }
+
+    // 前三关：立即执行
+    [SelfTest.engine(), SelfTest.registry(), SelfTest.paths()].forEach(function (res, i) {
+      const card = document.createElement('div'); card.className = 'viz-card';
+      const h = document.createElement('h3'); h.textContent = (i + 1) + '. ' + res.name; card.appendChild(h);
+      renderRes(card, res);
+      root.appendChild(card);
+    });
+
+    // 第四关：动画全检（手动触发 + 进度条，避免进页面就卡）
+    const ac = document.createElement('div'); ac.className = 'viz-card';
+    ac.innerHTML = '<h3>4. 全动画冒烟</h3><p style="font-size:13px;color:#64748b;margin-top:0">每个动画用 默认/下限/上限 三组参数各泵 30 帧，断言不抛异常且确有画面输出。</p>';
+    const btn = document.createElement('button'); btn.className = 'btn'; btn.textContent = '开始动画全检';
+    const prog = document.createElement('div'); prog.className = 'path-bar'; prog.style.cssText = 'margin-top:10px;display:none';
+    const fill = document.createElement('div'); fill.className = 'path-bar-fill'; fill.style.width = '0%';
+    prog.appendChild(fill);
+    ac.appendChild(btn); ac.appendChild(prog);
+    root.appendChild(ac);
+    btn.addEventListener('click', function () {
+      btn.style.display = 'none'; prog.style.display = 'block';
+      SelfTest.anims(function (d, t) { fill.style.width = Math.round(d / t * 100) + '%'; }).then(function (res) {
+        fill.style.width = '100%';
+        renderRes(ac, res);
       });
-      const status = document.createElement('div');
-      status.className = 'lab-status ' + (fail === 0 ? 'ok' : 'bad');
-      status.textContent = fail === 0 ? '全部通过 (' + pass + '/' + (pass + fail) + ')' : '失败 ' + fail + ' 项';
-      card.appendChild(status);
-      card.appendChild(list);
-    }, 0);
+    });
   };
 
   // ---------- 路由 ----------
@@ -404,6 +438,9 @@
         if (parts[1]) Paths.renderPath(root, parts[1]);
         else Paths.renderIndex(root);
       }
+    } else if (sec === 'mistakes') {
+      const root = clearApp();
+      if (window.Mistakes) Mistakes.render(root);
     } else if (sec === 'graph') {
       const nav = document.querySelector('[data-nav="graph"]');
       if (nav) nav.classList.add('active');
