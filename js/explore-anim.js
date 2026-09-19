@@ -13,13 +13,13 @@
     return { c: c, ctx: ctx, w: w, h: h };
   }
 
-  /* 双摆混沌：两个初始仅差 0.001 rad 的双摆并排演示蝴蝶效应 */
+  /* 双摆混沌：两个并排的双摆，初始仅差 0.001 rad，并排对照演示蝴蝶效应 */
   AN.pendulum = function (holder) {
     const V = mkCanvas(holder, 360, 300, true);
     const ctx = V.ctx;
-    const l1 = 78, l2 = 78, m1 = 10, m2 = 10, G = 0.4;
-    function mkP(d) { return { th1: Math.PI / 2, th2: Math.PI / 2 + d, w1: 0, w2: 0, trail: [] }; }
-    const A = mkP(0), B = mkP(0.001);
+    const l1 = 56, l2 = 56, m1 = 10, m2 = 10, G = 0.4;
+    function mkP(pivX, d) { return { pivX: pivX, th1: Math.PI / 2, th2: Math.PI / 2 + d, w1: 0, w2: 0, trail: [] }; }
+    const A = mkP(100, 0), B = mkP(260, 0.001); // 并排两个支点
     function step(P) {
       for (let i = 0; i < 4; i++) {
         const dt = 0.1;
@@ -34,39 +34,46 @@
       }
     }
     function pos(P) {
-      const cx = V.w / 2, cy = 105;
-      const x1 = cx + l1 * Math.sin(P.th1), y1 = cy + l1 * Math.cos(P.th1);
-      return [cx, cy, x1, y1, x1 + l2 * Math.sin(P.th2), y1 + l2 * Math.cos(P.th2)];
+      const cy = 88;
+      const x1 = P.pivX + l1 * Math.sin(P.th1), y1 = cy + l1 * Math.cos(P.th1);
+      return [P.pivX, cy, x1, y1, x1 + l2 * Math.sin(P.th2), y1 + l2 * Math.cos(P.th2)];
     }
     function drawP(P, col, colA) {
       const q = pos(P);
       P.trail.push([q[4], q[5]]);
-      if (P.trail.length > 140) P.trail.shift();
+      if (P.trail.length > 130) P.trail.shift();
       for (let i = 1; i < P.trail.length; i++) {
-        ctx.strokeStyle = colA + (i / P.trail.length * 0.55).toFixed(2) + ')';
+        ctx.strokeStyle = colA + (i / P.trail.length * 0.6).toFixed(2) + ')';
         ctx.lineWidth = 1.2;
         ctx.beginPath(); ctx.moveTo(P.trail[i - 1][0], P.trail[i - 1][1]); ctx.lineTo(P.trail[i][0], P.trail[i][1]); ctx.stroke();
       }
       ctx.strokeStyle = 'rgba(226,232,240,.85)'; ctx.lineWidth = 2;
       ctx.beginPath(); ctx.moveTo(q[0], q[1]); ctx.lineTo(q[2], q[3]); ctx.lineTo(q[4], q[5]); ctx.stroke();
+      ctx.fillStyle = '#64748b';
+      ctx.beginPath(); ctx.arc(q[0], q[1], 3, 0, Math.PI * 2); ctx.fill();
       ctx.shadowColor = col; ctx.shadowBlur = 14;
       ctx.fillStyle = col;
-      ctx.beginPath(); ctx.arc(q[2], q[3], 6.5, 0, Math.PI * 2); ctx.fill();
-      ctx.beginPath(); ctx.arc(q[4], q[5], 7, 0, Math.PI * 2); ctx.fill();
+      ctx.beginPath(); ctx.arc(q[2], q[3], 6, 0, Math.PI * 2); ctx.fill();
+      ctx.beginPath(); ctx.arc(q[4], q[5], 6.5, 0, Math.PI * 2); ctx.fill();
       ctx.shadowBlur = 0;
       return q;
     }
     (function loop() {
       step(A); step(B);
       ctx.fillStyle = 'rgba(15,23,42,.3)'; ctx.fillRect(0, 0, V.w, V.h);
+      // 中缝虚线：两个独立小天地
+      ctx.strokeStyle = 'rgba(100,116,139,.35)'; ctx.setLineDash([3, 5]); ctx.lineWidth = 1;
+      ctx.beginPath(); ctx.moveTo(V.w / 2, 12); ctx.lineTo(V.w / 2, V.h - 26); ctx.stroke();
+      ctx.setLineDash([]);
       const qa = drawP(A, '#38bdf8', 'rgba(56,189,248,');
       const qb = drawP(B, '#fb923c', 'rgba(251,146,60,');
-      const sep = Math.hypot(qa[4] - qb[4], qa[5] - qb[5]);
+      const sep = Math.hypot(qa[4] - (qb[4] - 160), qa[5] - qb[5]); // 换算到同一坐标系比较相位差
       ctx.fillStyle = '#0f172a'; ctx.fillRect(0, V.h - 22, V.w, 22);
-      ctx.fillStyle = sep > 50 ? '#fbbf24' : '#94a3b8'; ctx.font = '11px sans-serif';
-      ctx.fillText('两摆初始仅差 0.001 rad · 末端相距 ' + sep.toFixed(1) + ' px' + (sep > 50 ? ' —— 已彻底分道扬镳' : ''), 8, V.h - 8);
-      ctx.fillStyle = '#38bdf8'; ctx.fillText('● 摆 A', 8, 16);
-      ctx.fillStyle = '#fb923c'; ctx.fillText('● 摆 B（初始 +0.001）', 62, 16);
+      ctx.fillStyle = sep > 40 ? '#fbbf24' : '#94a3b8'; ctx.font = '11px sans-serif';
+      ctx.fillText('两摆初始仅差 0.001 rad · 相位差 ' + sep.toFixed(1) + ' px' + (sep > 40 ? ' —— 已彻底分道扬镳' : '（目前仍同步）'), 8, V.h - 8);
+      ctx.fillStyle = '#38bdf8'; ctx.font = '11px sans-serif';
+      ctx.fillText('● 摆 A', 68, 16);
+      ctx.fillStyle = '#fb923c'; ctx.fillText('● 摆 B（初始 +0.001）', 218, 16);
       window.requestAnimationFrame(loop);
     })();
   };
