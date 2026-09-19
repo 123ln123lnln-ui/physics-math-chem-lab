@@ -93,15 +93,47 @@
       root.appendChild(banner);
     }
 
-    // 学习路径入口卡
+    // 学习路径入口卡（已设目标则升级为目标面板）
     if (window.Paths) {
+      const gid = Paths.getGoal ? Paths.getGoal() : '';
+      const gp = gid && Paths.byId[gid];
       const pc = document.createElement('div');
       pc.className = 'viz-card';
-      pc.style.cssText = 'margin-top:12px;padding:14px 18px;display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:10px';
-      pc.innerHTML = '<div style="font-size:14px">🧭 <b>学习路径</b>：' + Paths.list.length +
-        ' 条编排好的复习主线（中考一轮 / 初高衔接），按顺序走完一条就是一轮复习。</div>' +
-        '<a href="#/paths" style="color:#2563eb;text-decoration:none;font-weight:600;font-size:14px">选一条开始 →</a>';
-      root.appendChild(pc);
+      pc.style.cssText = 'margin-top:12px;padding:14px 18px';
+      if (gp) {
+        const pr = Paths.progress(gp);
+        const pct = Math.round(pr.lit / pr.total * 100);
+        let inner = '<div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:10px">' +
+          '<div style="font-size:14px">🎯 <b>当前目标</b>：' + gp.title + '（' + pr.lit + '/' + pr.total + '）</div>' +
+          '<a href="#" class="goal-clear" style="font-size:12px;color:#94a3b8;text-decoration:none">取消目标</a></div>' +
+          '<div class="path-bar" style="margin-top:8px"><div class="path-bar-fill" style="width:' + pct + '%"></div></div>';
+        if (pr.next && window.Reg && Reg.byId[pr.next]) {
+          inner += '<a class="btn spot-pulse" style="display:inline-block;margin-top:10px;text-decoration:none" href="#/kb/' + pr.next + '">▶ 继续：' + Reg.byId[pr.next].title + '</a>';
+        } else if (!pr.next) {
+          inner += '<div style="margin-top:10px;font-size:14px;color:#166534">🎓 目标达成！去路径页挑下一条。</div>';
+        }
+        pc.innerHTML = inner;
+        root.appendChild(pc);
+        const clr = pc.querySelector('.goal-clear');
+        if (clr) clr.addEventListener('click', function (ev) { ev.preventDefault(); Paths.clearGoal(); App.route(); });
+      } else {
+        pc.innerHTML = '<div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:10px">' +
+          '<div style="font-size:14px">🧭 <b>学习路径</b>：' + Paths.list.length + ' 条编排好的复习主线（中考一轮 / 初高衔接），按顺序走完一条就是一轮复习。</div>' +
+          '<a href="#/paths" style="color:#2563eb;text-decoration:none;font-weight:600;font-size:14px">选一条开始 →</a></div>';
+        root.appendChild(pc);
+      }
+    }
+
+    // 兴趣直达：今天想探索什么（跳到资料篇对应科技树）
+    if (window.Explore) {
+      const chips = document.createElement('div');
+      chips.style.cssText = 'margin-top:12px;display:flex;gap:8px;flex-wrap:wrap;align-items:center';
+      let ch = '<span style="font-size:13px;color:#64748b">✨ 今天想探索：</span>';
+      [['天文树', '仰望星空'], ['生命树', '生命奥秘'], ['机器人树', '机器与智能'], ['量子奇观树', '量子奇观'], ['感知与错觉树', '感官错觉'], ['医学树', '人体医学']].forEach(function (pair) {
+        ch += '<a class="chip" href="#/explore?cat=' + encodeURIComponent(pair[0]) + '">' + pair[1] + '</a>';
+      });
+      chips.innerHTML = ch;
+      root.appendChild(chips);
     }
 
     const defs = [

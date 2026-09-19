@@ -159,6 +159,12 @@
     sel.style.cssText = 'padding:8px;border-radius:8px;border:1px solid #cbd5e1';
     sel.innerHTML = '<option value="">全部分类</option>' + Object.keys(cats).map(function (c) { return '<option>' + c + '</option>'; }).join('');
     bar.appendChild(sel);
+    // 兴趣直达：#/explore?cat=某树 预设分类筛选
+    const catM = /[?&]cat=([^&]+)/.exec(location.hash);
+    if (catM) {
+      const cv = decodeURIComponent(catM[1]);
+      if (cats[cv]) sel.value = cv;
+    }
     const count = document.createElement('span');
     count.style.cssText = 'align-self:center;font-size:13px;color:#64748b';
     bar.appendChild(count);

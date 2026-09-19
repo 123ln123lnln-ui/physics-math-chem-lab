@@ -55,6 +55,17 @@
       (item.type === 'concept' ? ' · 概念讲解' : ' · 公式实验') + '</div>';
     root.appendChild(head);
 
+    // 打印卡：一键出纸卡/PDF（打印样式见 style.css @media print）
+    const printRow = document.createElement('div');
+    printRow.style.cssText = 'display:flex;justify-content:flex-end;margin:-6px 0 8px';
+    const printBtn = document.createElement('button');
+    printBtn.className = 'btn secondary';
+    printBtn.style.cssText = 'font-size:12.5px;padding:4px 12px';
+    printBtn.textContent = '🖨 打印本页';
+    printBtn.addEventListener('click', function () { window.print(); });
+    printRow.appendChild(printBtn);
+    root.appendChild(printRow);
+
     // 星图 2.0：前置门槛软提示（不阻止学习，只指路）
     if (window.Progress && window.Deps) {
       const g = Progress.checkGate(item.id);

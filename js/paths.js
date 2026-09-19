@@ -46,12 +46,39 @@
       audience: '高一',
       desc: '初中力学的高中版：匀变速 → 牛顿定律 → 曲线运动 → 能量动量。预习/衔接两用。约 12 课。',
       nodes: ['phy_g1_01', 'phy_g1_02', 'phy_m11', 'phy_g1_03', 'phy_g1_05', 'phy_g1_06', 'phy_g1_07', 'phy_g3_01', 'phy_g3_02', 'phy_g2_01', 'phy_g2_02', 'phy_g2_03']
+    },
+    {
+      id: 'zk-wuli-sgr',
+      title: '中考一轮 · 声光热主线',
+      audience: '初三',
+      desc: '声学两课打头，光学四课主干，热学收尾——中考选填题的稳定粮仓。约 10 课。',
+      nodes: ['phy_j1_01', 'phy_j1_02', 'phy_j2_01', 'phy_j2_02', 'phy_j2_03', 'phy_j2_04', 'phy_j3_01', 'phy_j3_02', 'phy_j3_04', 'phy_j3_05']
+    },
+    {
+      id: 'zk-shuxue-ds',
+      title: '中考一轮 · 代数与统计概率',
+      audience: '初三',
+      desc: '计算功底 + 方程工具 + 统计概率，把该拿的分一分不丢。约 10 课。',
+      nodes: ['math_j1_01', 'math_j1_02', 'math_j2_01', 'math_j2_03', 'math_j4_02', 'math_j5_01', 'math_j6_01', 'math_j14_01', 'math_j14_02', 'math_j14_03']
+    },
+    {
+      id: 'gk-huaxue-rm',
+      title: '初高衔接 · 高中化学入门',
+      audience: '高一',
+      desc: '物质的量是高中化学的"通用货币"，从它开始打通微观与宏观。约 8 课。',
+      nodes: ['che_g1_01', 'che_g1_02', 'che_g1_03', 'che_g1_04', 'che_g2_01', 'che_g2_02', 'che_g3_01', 'che_g3_02']
     }
   ];
 
   const Paths = { list: PATHS };
   Paths.byId = {};
   PATHS.forEach(function (p) { Paths.byId[p.id] = p; });
+
+  // 目标机制：首页钉住一条路径，形成"今天要学什么"的答案
+  const GOAL_KEY = 'pmc-goal';
+  Paths.getGoal = function () { try { return localStorage.getItem(GOAL_KEY) || ''; } catch (e) { return ''; } };
+  Paths.setGoal = function (id) { try { localStorage.setItem(GOAL_KEY, id); } catch (e) {} };
+  Paths.clearGoal = function () { try { localStorage.removeItem(GOAL_KEY); } catch (e) {} };
 
   function litCount(p) {
     if (!window.Progress) return 0;
@@ -64,6 +91,7 @@
     }
     return null; // 全部点亮
   }
+  Paths.progress = function (p) { return { lit: litCount(p), total: p.nodes.length, next: nextUnlit(p) }; };
 
   // 路径总览页
   Paths.renderIndex = function (root) {
@@ -120,7 +148,7 @@
     const nid = nextUnlit(p);
     if (nid && window.Reg && Reg.byId[nid]) {
       const go = document.createElement('a');
-      go.className = 'btn';
+      go.className = 'btn spot-pulse';
       go.style.cssText = 'display:inline-block;margin:10px 0 16px;text-decoration:none';
       go.href = '#/kb/' + nid;
       go.textContent = '▶ 继续：' + Reg.byId[nid].title;
@@ -132,6 +160,17 @@
       done.textContent = '🎓 这条路径全部点亮了！去「今日回顾」保持亮度，或挑下一条路径。';
       root.appendChild(done);
     }
+
+    // 目标机制：钉到首页，让"今天学什么"永远有答案
+    const goalBtn = document.createElement('button');
+    goalBtn.className = 'btn secondary';
+    goalBtn.style.cssText = 'margin:10px 0 16px 8px';
+    goalBtn.textContent = (Paths.getGoal() === pid) ? '✓ 已是当前目标' : '🎯 设为我的目标';
+    goalBtn.addEventListener('click', function () {
+      Paths.setGoal(pid);
+      goalBtn.textContent = '✓ 已是当前目标';
+    });
+    root.appendChild(goalBtn);
 
     const ol = document.createElement('ol');
     ol.className = 'path-steps';
