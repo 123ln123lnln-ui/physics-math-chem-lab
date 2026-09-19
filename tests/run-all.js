@@ -9,7 +9,8 @@ const path = require('path');
 const gates = [
   ['引擎黄金测试', 'node-run.js'],
   ['注册表校验', 'validate-registry.js'],
-  ['全动画黄金测试', 'all-anims.js']
+  ['全动画黄金测试', 'all-anims.js'],
+  ['路径数据校验', 'check-paths.js']
 ];
 
 let failed = 0;

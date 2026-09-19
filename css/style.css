@@ -216,3 +216,53 @@ html[data-skin="fire"] .g-node.lit { border-color: #ea580c; }
 .viz-card canvas[style*="0f172a"], .explore-card canvas[style*="0f172a"], .subject-card canvas[style*="0f172a"] {
   border-color: #1e293b;
 }
+
+
+/* ================= v26：学习路径 + 专业动效规范 ================= */
+
+/* --- 学习路径 --- */
+.path-bar { height: 6px; background: #e2e8f0; border-radius: 3px; overflow: hidden; margin-top: 10px; }
+.path-bar-fill { height: 100%; background: linear-gradient(90deg, #2563eb, #f59e0b); border-radius: 3px; transition: width .6s cubic-bezier(0.16, 1, 0.3, 1); }
+.path-steps { list-style: none; padding: 0; margin: 0; counter-reset: step; }
+.path-step { counter-increment: step; margin: 6px 0; }
+.path-step a { display: flex; align-items: center; gap: 10px; padding: 10px 14px; background: #fff; border: 1px solid #e2e8f0; border-radius: 10px; text-decoration: none; color: inherit; transition: border-color .2s, transform .2s; }
+.path-step a:hover { border-color: #2563eb; transform: translateX(4px); }
+.path-step a::before { content: counter(step); flex: none; width: 24px; height: 24px; border-radius: 50%; background: #f1f5f9; color: #64748b; font-size: 12px; font-weight: 700; display: flex; align-items: center; justify-content: center; }
+.path-step.lit a::before { background: #fef3c7; color: #b45309; }
+.path-step-badge { flex: none; width: 22px; text-align: center; }
+.path-step-title { flex: 1; font-size: 14.5px; }
+.path-step-meta { flex: none; font-size: 12px; color: #94a3b8; }
+
+/* --- 入场语汇（OpenMAIC 式：easeOutExpo + 轻上浮 + 逐项 stagger） --- */
+@keyframes fade-rise {
+  from { opacity: 0; transform: translateY(8px) scale(0.99); }
+  to { opacity: 1; transform: none; }
+}
+.subject-grid > *, .path-steps > li, .app-main > .viz-card {
+  animation: fade-rise 0.45s cubic-bezier(0.16, 1, 0.3, 1) both;
+}
+.subject-grid > *:nth-child(2), .path-steps > li:nth-child(2) { animation-delay: 0.05s; }
+.subject-grid > *:nth-child(3), .path-steps > li:nth-child(3) { animation-delay: 0.10s; }
+.subject-grid > *:nth-child(4), .path-steps > li:nth-child(4) { animation-delay: 0.15s; }
+.subject-grid > *:nth-child(5), .path-steps > li:nth-child(5) { animation-delay: 0.20s; }
+.subject-grid > *:nth-child(6), .path-steps > li:nth-child(6) { animation-delay: 0.25s; }
+.subject-grid > *:nth-child(n+7), .path-steps > li:nth-child(n+7) { animation-delay: 0.30s; }
+
+/* --- 无障碍：尊重系统减弱动效设置 --- */
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
+}
+
+/* --- 打印卡：只留内容，去掉交互件 --- */
+@media print {
+  .site-header, .site-footer, .anim-ctrl, .quiz-card, .back-link,
+  .btn, button, select, .voice-toggle, .pts-badge { display: none !important; }
+  body { background: #fff; }
+  .viz-card, .subject-card { border: 1px solid #cbd5e1 !important; box-shadow: none !important; break-inside: avoid; animation: none !important; }
+  canvas, img, svg { max-width: 100% !important; }
+  a { color: inherit !important; text-decoration: none !important; }
+}

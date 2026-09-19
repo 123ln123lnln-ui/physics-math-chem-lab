@@ -93,6 +93,17 @@
       root.appendChild(banner);
     }
 
+    // 学习路径入口卡
+    if (window.Paths) {
+      const pc = document.createElement('div');
+      pc.className = 'viz-card';
+      pc.style.cssText = 'margin-top:12px;padding:14px 18px;display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:10px';
+      pc.innerHTML = '<div style="font-size:14px">🧭 <b>学习路径</b>：' + Paths.list.length +
+        ' 条编排好的复习主线（中考一轮 / 初高衔接），按顺序走完一条就是一轮复习。</div>' +
+        '<a href="#/paths" style="color:#2563eb;text-decoration:none;font-weight:600;font-size:14px">选一条开始 →</a>';
+      root.appendChild(pc);
+    }
+
     const defs = [
       { subject: 'math', title: '数学', cls: '', desc: '函数、几何、三角、解析几何与微积分入门', formula: 'y=ax^2+bx+c' },
       { subject: 'physics', title: '物理', cls: 'physics', desc: '运动、力、光、电与振动波动', formula: 's=v_0t+\\tfrac{1}{2}at^2' },
@@ -352,6 +363,14 @@
         } else {
           Reg.renderLabHome(root);
         }
+      }
+    } else if (sec === 'paths') {
+      const nav = document.querySelector('[data-nav="paths"]');
+      if (nav) nav.classList.add('active');
+      const root = clearApp();
+      if (window.Paths) {
+        if (parts[1]) Paths.renderPath(root, parts[1]);
+        else Paths.renderIndex(root);
       }
     } else if (sec === 'graph') {
       const nav = document.querySelector('[data-nav="graph"]');
