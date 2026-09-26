@@ -1,0 +1,67 @@
+{
+  "$schema_note": "数理通语义质检关 question schemas v1 · 2026-09-19 · 遵循 judger 技能七纪律。引擎未接入前为干跑模式（只做结构校验+打印计划）。Score 每级为场景描述（纪律6）；Choice 必含 other 出口（纪律3）。",
+  "groups": {
+    "quiz_acceptance": {
+      "_comment": "题库验收：每道题一次调用 3 题并行。≥0.85 通过；0.5-0.85 人工复核；<0.5 打回",
+      "state_template": {
+        "quiz": { "stem": "<题干>", "options": ["<选项>"], "answer": "<答案>", "explanation": "<解析>", "kp": "<所属知识点>" }
+      },
+      "questions": {
+        "unambiguous": {
+          "type": "noul",
+          "instructions": "题目 `quiz.stem` 无歧义、只有一个正确答案？"
+        },
+        "accurate": {
+          "type": "noul",
+          "instructions": "解析 `quiz.explanation` 科学准确、且与所属知识点 `quiz.kp` 的学段讲解方式相容（高中内容讲清楚不算不准确）？"
+        },
+        "scope": {
+          "type": "choice",
+          "instructions": "`quiz` 的学段定位",
+          "criteria": {
+            "jhs": "初中课内内容",
+            "bridge": "初高衔接拓展内容",
+            "hs": "高中及以上内容",
+            "other": "无法判断"
+          }
+        },
+        "difficulty": {
+          "type": "score",
+          "instructions": "`quiz` 的难度定位",
+          "criteria": [
+            "小学至初一知识即可作答",
+            "初三课内基础题",
+            "初三中考难度",
+            "超出初中课标"
+          ]
+        }
+      }
+    },
+    "mistake_attribution": {
+      "_comment": "错题归因：错因文本 → 该知识树典型误区。misconceptions 运行时按知识树注入",
+      "state_template": {
+        "mistake": { "kp": "<知识点>", "question": "<题目>", "wrong_answer": "<学生答案>", "note": "<可选备注>" }
+      },
+      "questions": {
+        "misconception": {
+          "type": "choice",
+          "instructions": "学生在 `mistake` 中暴露的错因属于哪类典型误区？",
+          "criteria": "<运行时注入该知识树误区库 + {\"other\": \"不在已知误区库\"}>"
+        }
+      }
+    },
+    "animation_copy": {
+      "_comment": "动画文案入库前：对照 docs/ANIM-QC.md 第三节科学约束卡逐条 Noul；constraints 运行时从文档注入",
+      "state_template": {
+        "anim": { "id": "<动画ID>", "narration": "<解说文案>", "key_facts": ["<关键数据>"] }
+      },
+      "questions": {
+        "constraint_check": {
+          "type": "noul",
+          "instructions": "`anim` 的文案与数据是否违反科学约束：`constraints[i]`？（每条约束一题，投机扇出一次问完）"
+        }
+      }
+    }
+  },
+  "logging": ["model", "request_id", "target_id", "answers", "probabilities", "human_override"]
+}
